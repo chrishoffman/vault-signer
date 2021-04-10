@@ -97,7 +97,7 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 	if err != nil {
 		return nil, err
 	}
-	publicKey, err := s.createPublicKey(keyInfo.keys[keyInfo.latestVersion].publicKey)
+	publicKey, err := s.createPublicKey(keyInfo.Keys[keyInfo.LatestVersion].PublicKey)
 	if err != nil {
 		return nil, err
 	}
@@ -160,19 +160,19 @@ func (s *VaultSigner) retrieveKey() error {
 		return err
 	}
 
-	if !keyInfo.supportsSigning {
+	if !keyInfo.SupportsSigning {
 		return errors.New("key does not support signing")
 	}
-	if keyInfo.derived && len(s.context) == 0 {
+	if keyInfo.Derived && len(s.context) == 0 {
 		return errors.New("context must be provided for derived keys")
 	}
-	if !keyInfo.supportsDerivation && len(s.context) > 0 {
+	if !keyInfo.SupportsDerivation && len(s.context) > 0 {
 		return errors.New("context provided by derivation is not supported")
 	}
 
-	s.derived = keyInfo.derived
+	s.derived = keyInfo.Derived
 
-	switch keyInfo.keyType {
+	switch keyInfo.KeyType {
 	case "rsa-2048":
 		s.keyType = keyTypeRsa2048
 	case "ed25519":
@@ -188,9 +188,9 @@ func (s *VaultSigner) retrieveKey() error {
 		if err != nil {
 			return err
 		}
-		encodedPublicKey = contextKeyInfo.keys[contextKeyInfo.latestVersion].publicKey
+		encodedPublicKey = contextKeyInfo.Keys[contextKeyInfo.LatestVersion].PublicKey
 	} else {
-		encodedPublicKey = keyInfo.keys[keyInfo.latestVersion].publicKey
+		encodedPublicKey = keyInfo.Keys[keyInfo.LatestVersion].PublicKey
 	}
 	publicKey, err := s.createPublicKey(encodedPublicKey)
 	if err != nil {
@@ -202,14 +202,14 @@ func (s *VaultSigner) retrieveKey() error {
 }
 
 type keyInfo struct {
-	derived            bool   `mapstructure:"derived"`
-	supportsSigning    bool   `mapstructure:"supports_signing"`
-	supportsDerivation bool   `mapstructure:"supports_derivation"`
-	keyType            string `mapstructure:"type"`
-	keys               map[int]struct {
-		publicKey string `mapstructure:"public_key"`
+	Derived            bool   `mapstructure:"derived"`
+	SupportsSigning    bool   `mapstructure:"supports_signing"`
+	SupportsDerivation bool   `mapstructure:"supports_derivation"`
+	KeyType            string `mapstructure:"type"`
+	Keys               map[int]struct {
+		PublicKey string `mapstructure:"public_key"`
 	} `mapstructure:"keys"`
-	latestVersion int `mapstructure:"latest_version"`
+	LatestVersion int `mapstructure:"latest_version"`
 }
 
 func (s *VaultSigner) retrieveKeyInfo(context []byte) (*keyInfo, error) {
@@ -217,7 +217,6 @@ func (s *VaultSigner) retrieveKeyInfo(context []byte) (*keyInfo, error) {
 
 	var rsp *api.Secret
 	var err error
-
 	if len(context) == 0 {
 		rsp, err = s.vaultClient.Logical().Read(keyPath)
 		if err != nil {
