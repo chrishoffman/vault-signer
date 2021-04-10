@@ -91,25 +91,20 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 		return nil, errors.New("context can only be used with derived keys")
 	}
 
-	keyInfo, err := s.retrieveKeyInfo(context)
-	if err != nil {
-		return nil, err
-	}
-	publicKey, err := s.createPublicKey(keyInfo.Keys[keyInfo.LatestVersion].PublicKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &VaultSigner{
+	signer := &VaultSigner{
 		vaultClient: s.vaultClient,
-		publicKey:   publicKey,
 		namespace:   s.namespace,
 		mountPath:   s.mountPath,
 		keyName:     s.keyName,
 		context:     context,
 		derived:     s.derived,
 		keyType:     s.keyType,
-	}, nil
+	}
+	if err := signer.retrieveKey(); err != nil {
+		return nil, err
+	}
+
+	return signer, nil
 }
 
 // Sign is part of the crypto.Signer interface and signs a given digest with the configured key
@@ -153,7 +148,7 @@ func (s *VaultSigner) Public() crypto.PublicKey {
 }
 
 func (s *VaultSigner) retrieveKey() error {
-	keyInfo, err := s.retrieveKeyInfo(nil)
+	keyInfo, err := s.retrieveKeyInfo()
 	if err != nil {
 		return err
 	}
@@ -181,18 +176,7 @@ func (s *VaultSigner) retrieveKey() error {
 		return errors.New("unsupported key type")
 	}
 
-	var encodedPublicKey string
-	if s.derived {
-		// validation complete, retrieve public key with context
-		contextKeyInfo, err := s.retrieveKeyInfo(s.context)
-		if err != nil {
-			return err
-		}
-		encodedPublicKey = contextKeyInfo.Keys[contextKeyInfo.LatestVersion].PublicKey
-	} else {
-		encodedPublicKey = keyInfo.Keys[keyInfo.LatestVersion].PublicKey
-	}
-	publicKey, err := s.createPublicKey(encodedPublicKey)
+	publicKey, err := s.createPublicKey(keyInfo.Keys[keyInfo.LatestVersion].PublicKey)
 	if err != nil {
 		return err
 	}
@@ -212,26 +196,20 @@ type keyInfo struct {
 	LatestVersion int `mapstructure:"latest_version"`
 }
 
-func (s *VaultSigner) retrieveKeyInfo(context []byte) (*keyInfo, error) {
+func (s *VaultSigner) retrieveKeyInfo() (*keyInfo, error) {
 	keyPath := s.buildKeyPath("keys")
 
-	var rsp *api.Secret
-	var err error
-	if len(context) == 0 {
-		rsp, err = s.vaultClient.Logical().Read(keyPath)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		encodedContext := base64.StdEncoding.EncodeToString(context)
-		rsp, err = s.vaultClient.Logical().ReadWithData(keyPath, map[string][]string{
-			"context": {
-				encodedContext,
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
+	var context string
+	if len(s.context) > 0 {
+		context = base64.StdEncoding.EncodeToString(s.context)
+	}
+	rsp, err := s.vaultClient.Logical().ReadWithData(keyPath, map[string][]string{
+		"context": {
+			context,
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	keyInfo := new(keyInfo)
