@@ -2,14 +2,16 @@ package vaultsigner_test
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/sha256"
+	"encoding/asn1"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path"
-	"strings"
 	"testing"
 
 	signer "github.com/chrishoffman/vault-signer"
@@ -31,6 +33,9 @@ func TestSign(t *testing.T) {
 		{"rsa-2048", false},
 		{"rsa-3072", false},
 		{"rsa-4096", false},
+		{"ecdsa-p256", false},
+		{"ecdsa-p384", false},
+		{"ecdsa-p521", false},
 		{"ed25519", false},
 		{"ed25519", true},
 	}
@@ -39,7 +44,6 @@ func TestSign(t *testing.T) {
 		for _, tt := range tests {
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			t.Run(testName, func(t *testing.T) {
-				t.Parallel()
 				testSign(t, client, tt.keyType, tt.derived)
 			})
 		}
@@ -76,14 +80,27 @@ func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
 		t.Fatalf("invalid signature")
 	}
 
-	switch {
-	case strings.HasPrefix(keyType, "rsa"):
+	switch keyType {
+	case "rsa-2048", "rsa-3072", "rsa-4096":
 		hash := sha256.Sum256(testDigest)
 		rsaPublicKey := publicKey.(*rsa.PublicKey)
-		if err := rsa.VerifyPKCS1v15(rsaPublicKey, crypto.SHA256, hash[:], signature); err != nil {
+		if err := rsa.VerifyPSS(rsaPublicKey, crypto.SHA256, hash[:], signature, nil); err != nil {
 			t.Fatalf("signature does not verify")
 		}
-	case keyType == "ed25519":
+	case "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
+		hash := sha256.Sum256(testDigest)
+		sig := struct {
+			R, S *big.Int
+		}{}
+		_, err = asn1.Unmarshal(signature, &sig)
+		if err != nil {
+			t.Fatalf("unable to unmarshal signature")
+		}
+		ecdsaPublicKey := publicKey.(*ecdsa.PublicKey)
+		if ok := ecdsa.Verify(ecdsaPublicKey, hash[:], sig.R, sig.S); !ok {
+			t.Fatalf("signature does not verify")
+		}
+	case "ed25519":
 		ed25519PublicKey := publicKey.(ed25519.PublicKey)
 		if ok := ed25519.Verify(ed25519PublicKey, testDigest, signature); !ok {
 			t.Fatalf("signature does not verify")

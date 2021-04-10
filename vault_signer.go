@@ -2,6 +2,7 @@ package vaultsigner
 
 import (
 	"crypto"
+	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
 	"crypto/x509"
@@ -22,7 +23,7 @@ type keyType int
 const (
 	keyTypeRsa keyType = iota
 	keyTypeEd25519
-	//	keyTypeEcdsa
+	keyTypeEcdsa
 )
 
 type VaultSigner struct {
@@ -172,6 +173,8 @@ func (s *VaultSigner) retrieveKey() error {
 	switch keyInfo.KeyType {
 	case "rsa-2048", "rsa-3072", "rsa-4096":
 		s.keyType = keyTypeRsa
+	case "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
+		s.keyType = keyTypeEcdsa
 	case "ed25519":
 		s.keyType = keyTypeEd25519
 	default:
@@ -247,13 +250,24 @@ func (s *VaultSigner) createPublicKey(keyData string) (crypto.PublicKey, error) 
 	switch s.keyType {
 	case keyTypeRsa:
 		block, _ := pem.Decode([]byte(keyData))
-		ifc, err := x509.ParsePKIXPublicKey(block.Bytes)
+		pub, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
 			return nil, err
 		}
-		key, ok := ifc.(*rsa.PublicKey)
+		key, ok := pub.(*rsa.PublicKey)
 		if !ok {
 			return nil, errors.New("unable to cast to RSA public key")
+		}
+		return key, nil
+	case keyTypeEcdsa:
+		block, _ := pem.Decode([]byte(keyData))
+		pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		key, ok := pub.(*ecdsa.PublicKey)
+		if !ok {
+			return nil, errors.New("unable to cast to ECDSA public key")
 		}
 		return key, nil
 	case keyTypeEd25519:
