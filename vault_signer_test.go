@@ -31,12 +31,15 @@ func TestSign(t *testing.T) {
 		{"ed25519", true},
 	}
 
-	for _, tt := range tests {
-		testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
-		t.Run(testName, func(t *testing.T) {
-			testSign(t, client, tt.keyType, tt.derived)
-		})
-	}
+	t.Run("sign", func(t *testing.T) {
+		for _, tt := range tests {
+			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
+			t.Run(testName, func(t *testing.T) {
+				t.Parallel()
+				testSign(t, client, tt.keyType, tt.derived)
+			})
+		}
+	})
 }
 
 func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
@@ -54,6 +57,11 @@ func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
 		t.Fatalf("err: %s", err)
 	}
 
+	publicKey := signer.Public()
+	if publicKey == nil {
+		t.Fatalf("invalid public key")
+	}
+
 	testDigest := []byte(newUUID(t))
 	signature, err := signer.Sign(nil, testDigest, nil)
 	if err != nil {
@@ -67,11 +75,10 @@ func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
 
 func createTransitMount(t *testing.T, client *api.Client, keyType string, derived bool) (string, string) {
 	mountPath := newUUID(t)
-	t.Logf("creating transit mount: %s", mountPath)
 	if err := client.Sys().Mount(mountPath, &api.MountInput{
 		Type: "transit",
 	}); err != nil {
-		t.Errorf("Error creating vault mount: %s", err)
+		t.Fatalf("Error creating vault mount: %s", err)
 	}
 
 	// Create derived signing key
@@ -80,10 +87,9 @@ func createTransitMount(t *testing.T, client *api.Client, keyType string, derive
 		"derived": derived,
 		"type":    keyType,
 	}
-	t.Logf("creating key: %s", keyName)
 	_, err := client.Logical().Write(path.Join(mountPath, "keys", keyName), keyOptions)
 	if err != nil {
-		t.Errorf("err: %s", err)
+		t.Fatalf("err: %s", err)
 	}
 
 	return mountPath, keyName
@@ -92,7 +98,7 @@ func createTransitMount(t *testing.T, client *api.Client, keyType string, derive
 func newUUID(t *testing.T) string {
 	generatedUUID, err := uuid.NewUUID()
 	if err != nil {
-		t.Errorf("err: %s", err)
+		t.Fatalf("err: %s", err)
 	}
 	return generatedUUID.String()
 }
@@ -100,11 +106,10 @@ func newUUID(t *testing.T) string {
 func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 	testUUID, err := uuid.NewUUID()
 	if err != nil {
-		t.Errorf("err: %s", err)
+		t.Fatalf("err: %s", err)
 	}
 
 	testToken := testUUID.String()
-	t.Logf("generating test token: %s", testToken)
 
 	var tempDir string
 	tempDir, err = ioutil.TempDir("", "derived_jwt")
@@ -114,7 +119,7 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 
 	pool, err := dockertest.NewPool("")
 	if err != nil {
-		t.Errorf("Failed to connect to docker: %s", err)
+		t.Fatalf("Failed to connect to docker: %s", err)
 	}
 
 	dockerOptions := &dockertest.RunOptions{
@@ -127,16 +132,16 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 	}
 	resource, err := pool.RunWithOptions(dockerOptions)
 	if err != nil {
-		t.Errorf("Could not start local Vault docker container: %s", err)
+		t.Fatalf("Could not start local Vault docker container: %s", err)
 	}
 
 	cleanup := func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			t.Errorf("error removing temp directory: %s", err)
+			t.Fatalf("error removing temp directory: %s", err)
 		}
 
 		if err := pool.Purge(resource); err != nil {
-			t.Errorf("Failed to cleanup local container: %s", err)
+			t.Fatalf("Failed to cleanup local container: %s", err)
 		}
 	}
 
@@ -169,7 +174,7 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 		return nil
 	}); err != nil {
 		cleanup()
-		t.Errorf("Could not connect to vault: %s", err)
+		t.Fatalf("Could not connect to vault: %s", err)
 	}
 	return cleanup, client
 }
