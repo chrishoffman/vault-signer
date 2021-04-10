@@ -3,7 +3,6 @@ package vaultsigner_test
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path"
 	"testing"
@@ -19,24 +18,25 @@ func TestSign(t *testing.T) {
 	defer cleanup()
 
 	var tests = []struct {
-		keyType     string
-		derived     bool
-		expectError bool
+		keyType string
+		derived bool
 	}{
-		{"rsa-2048", false, false},
-		{"ed25519", false, false},
-		{"ed25519", true, false},
+		{"rsa-2048", false},
+		{"rsa-3072", false},
+		{"rsa-4096", false},
+		{"ed25519", false},
+		{"ed25519", true},
 	}
 
 	for _, tt := range tests {
 		testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 		t.Run(testName, func(t *testing.T) {
-			testSign(t, client, tt.keyType, tt.derived, tt.expectError)
+			testSign(t, client, tt.keyType, tt.derived)
 		})
 	}
 }
 
-func testSign(t *testing.T, client *api.Client, keyType string, derived bool, expectError bool) {
+func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
 	mountPath, keyName := createTransitMount(t, client, keyType, derived)
 
 	keyConfig := &vsigner.KeyConfig{
@@ -77,7 +77,7 @@ func createTransitMount(t *testing.T, client *api.Client, keyType string, derive
 		"derived": derived,
 		"type":    keyType,
 	}
-	log.Printf("creating key: %s", keyName)
+	t.Logf("creating key: %s", keyName)
 	_, err := client.Logical().Write(path.Join(mountPath, "keys", keyName), keyOptions)
 	if err != nil {
 		t.Errorf("err: %s", err)

@@ -20,13 +20,9 @@ import (
 type keyType int
 
 const (
-	keyTypeRsa2048 keyType = iota
-	//	keyTypeRsa3072
-	//	keyTypeRsa4096
+	keyTypeRsa keyType = iota
 	keyTypeEd25519
-	//	keyTypeEcdsaP256
-	//	keyTypeEcdsaP384
-	//	keyTypeEcdsaP521
+	//	keyTypeEcdsa
 )
 
 type VaultSigner struct {
@@ -174,8 +170,8 @@ func (s *VaultSigner) retrieveKey() error {
 	s.derived = keyInfo.Derived
 
 	switch keyInfo.KeyType {
-	case "rsa-2048":
-		s.keyType = keyTypeRsa2048
+	case "rsa-2048", "rsa-3072", "rsa-4096":
+		s.keyType = keyTypeRsa
 	case "ed25519":
 		s.keyType = keyTypeEd25519
 	default:
@@ -249,7 +245,7 @@ func (s *VaultSigner) buildKeyPath(operation string) string {
 
 func (s *VaultSigner) createPublicKey(keyData string) (crypto.PublicKey, error) {
 	switch s.keyType {
-	case keyTypeRsa2048:
+	case keyTypeRsa:
 		block, _ := pem.Decode([]byte(keyData))
 		ifc, err := x509.ParsePKIXPublicKey(block.Bytes)
 		if err != nil {
