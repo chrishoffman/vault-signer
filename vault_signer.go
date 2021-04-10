@@ -57,7 +57,7 @@ type KeyConfig struct {
 
 	// Context is the context for a derived key and can only be provided when working
 	// with a derived key
-	Context string
+	Context []byte
 }
 
 // NewVaultSigner creates a signer the leverages HashiCorp Vault's transit engine to sign
@@ -78,6 +78,7 @@ func NewVaultSigner(vaultClient *api.Client, keyConfig *KeyConfig) (*VaultSigner
 		namespace:   keyConfig.Namespace,
 		mountPath:   keyConfig.MountPath,
 		keyName:     keyConfig.KeyName,
+		context:     keyConfig.Context,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
