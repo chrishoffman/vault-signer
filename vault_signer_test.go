@@ -2,10 +2,14 @@ package vaultsigner_test
 
 import (
 	"crypto"
+	"crypto/ed25519"
+	"crypto/rsa"
+	"crypto/sha256"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	signer "github.com/chrishoffman/vault-signer"
@@ -70,6 +74,22 @@ func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
 
 	if len(signature) == 0 {
 		t.Fatalf("invalid signature")
+	}
+
+	switch {
+	case strings.HasPrefix(keyType, "rsa"):
+		hash := sha256.Sum256(testDigest)
+		rsaPublicKey := publicKey.(*rsa.PublicKey)
+		if err := rsa.VerifyPKCS1v15(rsaPublicKey, crypto.SHA256, hash[:], signature); err != nil {
+			t.Fatalf("signature does not verify")
+		}
+	case keyType == "ed25519":
+		ed25519PublicKey := publicKey.(ed25519.PublicKey)
+		if ok := ed25519.Verify(ed25519PublicKey, testDigest, signature); !ok {
+			t.Fatalf("signature does not verify")
+		}
+	default:
+		t.Fatalf("no verification function")
 	}
 }
 
