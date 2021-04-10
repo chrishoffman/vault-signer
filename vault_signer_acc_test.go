@@ -14,22 +14,44 @@ import (
 	"github.com/ory/dockertest"
 )
 
-func TestSign_RSA2048(t *testing.T) {
+func TestSign(t *testing.T) {
 	cleanup, client := prepareTestContainer(t)
 	defer cleanup()
 
-	mountPath, keyName := createTransitMount(t, client, "rsa-2048", false)
+	var tests = []struct {
+		keyType     string
+		derived     bool
+		expectError bool
+	}{
+		{"rsa-2048", false, false},
+		{"ed25519", false, false},
+		{"ed25519", true, false},
+	}
+
+	for _, tt := range tests {
+		testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
+		t.Run(testName, func(t *testing.T) {
+			testSign(t, client, tt.keyType, tt.derived, tt.expectError)
+		})
+	}
+}
+
+func testSign(t *testing.T, client *api.Client, keyType string, derived bool, expectError bool) {
+	mountPath, keyName := createTransitMount(t, client, keyType, derived)
 
 	keyConfig := &vsigner.KeyConfig{
 		MountPath: mountPath,
 		KeyName:   keyName,
+	}
+	if derived {
+		keyConfig.Context = []byte(newUUID(t))
 	}
 	signer, err := vsigner.NewVaultSigner(client, keyConfig)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
 
-	testDigest := []byte("abc")
+	testDigest := []byte(newUUID(t))
 	signature, err := signer.Sign(nil, testDigest, nil)
 	if err != nil {
 		t.Fatalf("err: %s", err)
