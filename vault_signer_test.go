@@ -5,7 +5,9 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/asn1"
 	"fmt"
 	"io/ioutil"
@@ -62,9 +64,24 @@ func Test_DockerTests(t *testing.T) {
 	}{
 		{"rsa-2048", false, nil},
 		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15}},
+		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha1}},
+		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha224}},
+		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha256}},
+		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha384}},
+		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha512}},
+		{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
+		{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
+		{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
+		{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
+		{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
 		{"rsa-3072", false, nil},
 		{"rsa-4096", false, nil},
 		{"ecdsa-p256", false, nil},
+		{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
+		{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
+		{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
+		{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
+		{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
 		{"ecdsa-p384", false, nil},
 		{"ecdsa-p521", false, nil},
 		{"ed25519", false, nil},
@@ -138,21 +155,21 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConf
 
 	switch keyType {
 	case "rsa-2048", "rsa-3072", "rsa-4096":
-		hash := sha256.Sum256(testDigest)
+		algo, hash := hashValue(keyConfig.HashAlgorithm, testDigest)
 		rsaPublicKey := publicKey.(*rsa.PublicKey)
 
 		switch keyConfig.SignatureAlgorithm {
 		case signer.SignatureAlgorithmPKCS1v15:
-			if err := rsa.VerifyPKCS1v15(rsaPublicKey, crypto.SHA256, hash[:], signature); err != nil {
+			if err := rsa.VerifyPKCS1v15(rsaPublicKey, algo, hash, signature); err != nil {
 				t.Fatalf("signature does not verify")
 			}
 		default:
-			if err := rsa.VerifyPSS(rsaPublicKey, crypto.SHA256, hash[:], signature, nil); err != nil {
+			if err := rsa.VerifyPSS(rsaPublicKey, algo, hash, signature, nil); err != nil {
 				t.Fatalf("signature does not verify")
 			}
 		}
 	case "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
-		hash := sha256.Sum256(testDigest)
+		_, hash := hashValue(keyConfig.HashAlgorithm, testDigest)
 		sig := struct {
 			R, S *big.Int
 		}{}
@@ -161,7 +178,7 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConf
 			t.Fatalf("unable to unmarshal signature")
 		}
 		ecdsaPublicKey := publicKey.(*ecdsa.PublicKey)
-		if ok := ecdsa.Verify(ecdsaPublicKey, hash[:], sig.R, sig.S); !ok {
+		if ok := ecdsa.Verify(ecdsaPublicKey, hash, sig.R, sig.S); !ok {
 			t.Fatalf("signature does not verify")
 		}
 	case "ed25519":
@@ -172,6 +189,27 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConf
 	default:
 		t.Fatalf("no verification function")
 	}
+}
+
+func hashValue(algo signer.HashAlgorithm, data []byte) (crypto.Hash, []byte) {
+	switch algo {
+	case signer.HashAlgorithmSha1:
+		sum := sha1.Sum(data)
+		return crypto.SHA1, sum[:]
+	case signer.HashAlgorithmSha224:
+		sum := sha256.Sum224(data)
+		return crypto.SHA224, sum[:]
+	case signer.HashAlgorithmSha256:
+		break
+	case signer.HashAlgorithmSha384:
+		sum := sha512.Sum384(data)
+		return crypto.SHA384, sum[:]
+	case signer.HashAlgorithmSha512:
+		sum := sha512.Sum512(data)
+		return crypto.SHA512, sum[:]
+	}
+	sum := sha256.Sum256(data)
+	return crypto.SHA256, sum[:]
 }
 
 func testSigner(t *testing.T, client *api.Client, keyType string, derived bool, keyConfig *signer.KeyConfig) (*signer.VaultSigner, error) {
