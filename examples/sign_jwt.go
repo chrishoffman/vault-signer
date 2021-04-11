@@ -22,11 +22,11 @@ func SignJWT() {
 	// key config:
 	//  type: ed25519
 	//  derived: false
-	keyConfig := &vaultsigner.KeyConfig{
+	signerConfig := &vaultsigner.SignerConfig{
 		MountPath: "transit",
 		KeyName:   "test-key",
 	}
-	vaultSigner, err := vaultsigner.NewVaultSigner(vaultClient, keyConfig)
+	vaultSigner, err := vaultsigner.NewVaultSigner(vaultClient, signerConfig)
 	if err != nil {
 		log.Fatalf("err: %s", err)
 	}
@@ -66,12 +66,12 @@ func SignJWTWithDerivedKey() {
 	// key config:
 	//  type: ed25519
 	//  derived: true
-	keyConfig := &vaultsigner.KeyConfig{
+	signerConfig := &vaultsigner.SignerConfig{
 		MountPath: "transit",
 		KeyName:   "test-key",
 		Context:   []byte("context-value"),
 	}
-	vaultSigner, err := vaultsigner.NewVaultSigner(vaultClient, keyConfig)
+	vaultSigner, err := vaultsigner.NewVaultSigner(vaultClient, signerConfig)
 	if err != nil {
 		log.Fatalf("err: %s", err)
 	}

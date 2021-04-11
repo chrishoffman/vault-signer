@@ -36,18 +36,18 @@ func TestNew_ValidateConstructor(t *testing.T) {
 		t.Fatalf("error creating vault client")
 	}
 
-	keyConfig := &signer.KeyConfig{
+	signerConfig := &signer.SignerConfig{
 		KeyName: "test",
 	}
-	_, err = signer.NewVaultSigner(vaultClient, keyConfig)
+	_, err = signer.NewVaultSigner(vaultClient, signerConfig)
 	if err == nil {
 		t.Fatalf("error expected")
 	}
 
-	keyConfig = &signer.KeyConfig{
+	signerConfig = &signer.SignerConfig{
 		MountPath: "test",
 	}
-	_, err = signer.NewVaultSigner(vaultClient, keyConfig)
+	_, err = signer.NewVaultSigner(vaultClient, signerConfig)
 	if err == nil {
 		t.Fatalf("error expected")
 	}
@@ -59,30 +59,30 @@ func Test_DockerTests(t *testing.T) {
 
 	t.Run("sign", func(t *testing.T) {
 		var tests = []struct {
-			keyType   string
-			derived   bool
-			keyConfig *signer.KeyConfig
+			keyType      string
+			derived      bool
+			signerConfig *signer.SignerConfig
 		}{
 			{"rsa-2048", false, nil},
-			{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15}},
-			{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha1}},
-			{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha224}},
-			{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha256}},
-			{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha384}},
-			{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha512}},
-			{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
-			{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
-			{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
-			{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
-			{"rsa-2048", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha1}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha224}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha256}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha384}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha512}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
 			{"rsa-3072", false, nil},
 			{"rsa-4096", false, nil},
 			{"ecdsa-p256", false, nil},
-			{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
-			{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
-			{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
-			{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
-			{"ecdsa-p256", false, &signer.KeyConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
 			{"ecdsa-p384", false, nil},
 			{"ecdsa-p521", false, nil},
 			{"ed25519", false, nil},
@@ -92,11 +92,11 @@ func Test_DockerTests(t *testing.T) {
 		for _, tt := range tests {
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			t.Run(testName, func(t *testing.T) {
-				signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.keyConfig)
+				signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.signerConfig)
 				if err != nil {
 					t.Fatalf("error creating signer: %v", err)
 				}
-				testSign(t, signer, tt.keyType, tt.keyConfig)
+				testSign(t, signer, tt.keyType, tt.signerConfig)
 			})
 		}
 	})
@@ -150,9 +150,9 @@ func Test_DockerTests(t *testing.T) {
 	})
 }
 
-func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConfig *signer.KeyConfig) {
-	if keyConfig == nil {
-		keyConfig = &signer.KeyConfig{}
+func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerConfig *signer.SignerConfig) {
+	if signerConfig == nil {
+		signerConfig = &signer.SignerConfig{}
 	}
 
 	publicKey := vsigner.Public()
@@ -172,10 +172,10 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConf
 
 	switch keyType {
 	case "rsa-2048", "rsa-3072", "rsa-4096":
-		algo, hash := hashValue(keyConfig.HashAlgorithm, testDigest)
+		algo, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
 		rsaPublicKey := publicKey.(*rsa.PublicKey)
 
-		switch keyConfig.SignatureAlgorithm {
+		switch signerConfig.SignatureAlgorithm {
 		case signer.SignatureAlgorithmPKCS1v15:
 			if err := rsa.VerifyPKCS1v15(rsaPublicKey, algo, hash, signature); err != nil {
 				t.Fatalf("signature does not verify")
@@ -186,7 +186,7 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConf
 			}
 		}
 	case "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
-		_, hash := hashValue(keyConfig.HashAlgorithm, testDigest)
+		_, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
 		sig := struct {
 			R, S *big.Int
 		}{}
@@ -228,11 +228,11 @@ func hashValue(algo signer.HashAlgorithm, data []byte) (crypto.Hash, []byte) {
 	}
 }
 
-func testSigner(t *testing.T, client *api.Client, keyType string, derived bool, keyConfig *signer.KeyConfig) (*signer.VaultSigner, error) {
+func testSigner(t *testing.T, client *api.Client, keyType string, derived bool, signerConfig *signer.SignerConfig) (*signer.VaultSigner, error) {
 	mountPath, keyName := createTransitMount(t, client, keyType, derived)
-	config := keyConfig
-	if keyConfig == nil {
-		config = &signer.KeyConfig{}
+	config := signerConfig
+	if signerConfig == nil {
+		config = &signer.SignerConfig{}
 	}
 	config.MountPath = mountPath
 	config.KeyName = keyName

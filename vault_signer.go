@@ -45,7 +45,7 @@ type VaultSigner struct {
 	keyType keyType
 }
 
-type KeyConfig struct {
+type SignerConfig struct {
 	// Namespace for the key. This can be provided in the key config, the vault client,
 	// or both where they will be combined
 	Namespace string
@@ -88,25 +88,25 @@ const (
 
 // NewVaultSigner creates a signer the leverages HashiCorp Vault's transit engine to sign
 // using Go's built in crypto.Signer interface.
-func NewVaultSigner(vaultClient *api.Client, keyConfig *KeyConfig) (*VaultSigner, error) {
+func NewVaultSigner(vaultClient *api.Client, signerConfig *SignerConfig) (*VaultSigner, error) {
 	if vaultClient == nil {
 		return nil, errors.New("vault client is required")
 	}
-	if keyConfig.MountPath == "" {
+	if signerConfig.MountPath == "" {
 		return nil, errors.New("key mount path is required")
 	}
-	if keyConfig.KeyName == "" {
+	if signerConfig.KeyName == "" {
 		return nil, errors.New("key name is required")
 	}
 
 	signer := &VaultSigner{
 		vaultClient:        vaultClient,
-		namespace:          keyConfig.Namespace,
-		mountPath:          keyConfig.MountPath,
-		keyName:            keyConfig.KeyName,
-		context:            keyConfig.Context,
-		signatureAlgorithm: keyConfig.SignatureAlgorithm,
-		hashAlgorithm:      keyConfig.HashAlgorithm,
+		namespace:          signerConfig.Namespace,
+		mountPath:          signerConfig.MountPath,
+		keyName:            signerConfig.KeyName,
+		context:            signerConfig.Context,
+		signatureAlgorithm: signerConfig.SignatureAlgorithm,
+		hashAlgorithm:      signerConfig.HashAlgorithm,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
