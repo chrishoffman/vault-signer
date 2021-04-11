@@ -11,10 +11,13 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
 	github.com/google/uuid v1.2.0
+	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/hashicorp/vault/api v1.1.0
+	github.com/lib/pq v1.10.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.1
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v0.1.1 // indirect
 	github.com/ory/dockertest v3.3.5+incompatible
 	github.com/sirupsen/logrus v1.8.1 // indirect
+	gotest.tools v2.2.0+incompatible // indirect
 )
