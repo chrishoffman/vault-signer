@@ -36,12 +36,13 @@ type VaultSigner struct {
 	keyName   string
 	context   []byte
 
+	// key type specific configuration
+	hashAlgorithm      HashAlgorithm
+	signatureAlgorithm SignatureAlgorithm
+
 	// key properties
 	derived bool
 	keyType keyType
-
-	// keyOptions
-	rsaKeyOptions *RSAKeyOptions
 }
 
 type KeyConfig struct {
@@ -58,26 +59,36 @@ type KeyConfig struct {
 	// Context is the context for a derived key and can only be provided when working
 	// with a derived key
 	Context []byte
+
+	// HashAlgorithm is the hash algorithm used in the signing operation. It is only supported
+	// for RSA and ECDSA keys.
+	HashAlgorithm HashAlgorithm
+
+	// SignatureAlgorithm is the signature algorithm used in the signing operation. It is only
+	// support for RSA keys.
+	SignatureAlgorithm SignatureAlgorithm
 }
 
-type RSAKeyOptions struct {
-	// SignatureAlgorithm is the RSA signature algorithm used for signing
-	SignatureAlgorithm string
+type HashAlgorithm string
 
-	// HashAlgorithm is the hash algorithm used for signing
-	HashAlgorithm string
-}
+const (
+	HashAlgorithmSha1   HashAlgorithm = "sha1"
+	HashAlgorithmSha224               = "sha2-224"
+	HashAlgorithmSha256               = "sha2-256"
+	HashAlgorithmSha384               = "sha2-384"
+	HashAlgorithmSha512               = "sha2-512"
+)
+
+type SignatureAlgorithm string
+
+const (
+	SignatureAlgorithmPSS      SignatureAlgorithm = "pss"
+	SignatureAlgorithmPKCS1v15                    = "pkcs1v15"
+)
 
 // NewVaultSigner creates a signer the leverages HashiCorp Vault's transit engine to sign
 // using Go's built in crypto.Signer interface.
 func NewVaultSigner(vaultClient *api.Client, keyConfig *KeyConfig) (*VaultSigner, error) {
-	return NewVaultSignerWithOptions(vaultClient, keyConfig, nil)
-}
-
-// NewVaultSignerWithOptions creates a signer the leverages HashiCorp Vault's transit engine to sign
-// using Go's built in crypto.Signer interface. This function allows for key options to be provided.
-// Currently only RSA keys support key options.
-func NewVaultSignerWithOptions(vaultClient *api.Client, keyConfig *KeyConfig, keyOptions interface{}) (*VaultSigner, error) {
 	if vaultClient == nil {
 		return nil, errors.New("vault client is required")
 	}
@@ -89,25 +100,17 @@ func NewVaultSignerWithOptions(vaultClient *api.Client, keyConfig *KeyConfig, ke
 	}
 
 	signer := &VaultSigner{
-		vaultClient: vaultClient,
-		namespace:   keyConfig.Namespace,
-		mountPath:   keyConfig.MountPath,
-		keyName:     keyConfig.KeyName,
-		context:     keyConfig.Context,
+		vaultClient:        vaultClient,
+		namespace:          keyConfig.Namespace,
+		mountPath:          keyConfig.MountPath,
+		keyName:            keyConfig.KeyName,
+		context:            keyConfig.Context,
+		signatureAlgorithm: keyConfig.SignatureAlgorithm,
+		hashAlgorithm:      keyConfig.HashAlgorithm,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
 	}
-
-	if keyOptions != nil {
-		switch keyOptions.(type) {
-		case *RSAKeyOptions:
-			signer.rsaKeyOptions = keyOptions.(*RSAKeyOptions)
-		default:
-			return nil, errors.New("unknown key options")
-		}
-	}
-
 	return signer, nil
 }
 
@@ -144,12 +147,16 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]b
 	if s.derived {
 		requestData["context"] = base64.StdEncoding.EncodeToString(s.context)
 	}
-	if s.keyType == keyTypeRsa && s.rsaKeyOptions != nil {
-		if s.rsaKeyOptions.HashAlgorithm != "" {
-			requestData["hash_algorithm"] = s.rsaKeyOptions.HashAlgorithm
+
+	switch s.keyType {
+	case keyTypeRsa:
+		if s.signatureAlgorithm != "" {
+			requestData["signature_algorithm"] = s.signatureAlgorithm
 		}
-		if s.rsaKeyOptions.SignatureAlgorithm != "" {
-			requestData["signature_algorithm"] = s.rsaKeyOptions.SignatureAlgorithm
+		fallthrough
+	case keyTypeEcdsa:
+		if s.hashAlgorithm != "" {
+			requestData["hash_algorithm"] = s.hashAlgorithm
 		}
 	}
 

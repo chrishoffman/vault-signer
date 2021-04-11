@@ -56,34 +56,36 @@ func Test_DockerTests(t *testing.T) {
 	defer cleanup()
 
 	var tests = []struct {
-		keyType string
-		derived bool
+		keyType   string
+		derived   bool
+		keyConfig *signer.KeyConfig
 	}{
-		{"rsa-2048", false},
-		{"rsa-3072", false},
-		{"rsa-4096", false},
-		{"ecdsa-p256", false},
-		{"ecdsa-p384", false},
-		{"ecdsa-p521", false},
-		{"ed25519", false},
-		{"ed25519", true},
+		{"rsa-2048", false, nil},
+		{"rsa-2048", false, &signer.KeyConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15}},
+		{"rsa-3072", false, nil},
+		{"rsa-4096", false, nil},
+		{"ecdsa-p256", false, nil},
+		{"ecdsa-p384", false, nil},
+		{"ecdsa-p521", false, nil},
+		{"ed25519", false, nil},
+		{"ed25519", true, nil},
 	}
 
 	t.Run("sign", func(t *testing.T) {
 		for _, tt := range tests {
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			t.Run(testName, func(t *testing.T) {
-				signer, err := testSigner(t, client, tt.keyType, tt.derived)
+				signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.keyConfig)
 				if err != nil {
 					t.Fatalf("error creating signer: %v", err)
 				}
-				testSign(t, signer, tt.keyType)
+				testSign(t, signer, tt.keyType, tt.keyConfig)
 			})
 		}
 	})
 
 	t.Run("clone with context, not derived", func(t *testing.T) {
-		signer, err := testSigner(t, client, "rsa-2048", false)
+		signer, err := testSigner(t, client, "rsa-2048", false, nil)
 		if err != nil {
 			t.Fatalf("error creating signer: %v", err)
 		}
@@ -94,7 +96,7 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("clone with context, derived", func(t *testing.T) {
-		signer, err := testSigner(t, client, "ed25519", true)
+		signer, err := testSigner(t, client, "ed25519", true, nil)
 		if err != nil {
 			t.Fatalf("error creating signer: %v", err)
 		}
@@ -103,25 +105,29 @@ func Test_DockerTests(t *testing.T) {
 		if err != nil {
 			t.Fatalf("should not be able to clone non-derived signer")
 		}
-		testSign(t, clonedSigner, "ed25519")
+		testSign(t, clonedSigner, "ed25519", nil)
 	})
 
 	t.Run("key does not support signing", func(t *testing.T) {
-		_, err := testSigner(t, client, "aes256-gcm96", true)
+		_, err := testSigner(t, client, "aes256-gcm96", true, nil)
 		if err == nil {
 			t.Fatalf("creating signer that does not support signing should have errored")
 		}
 	})
 }
 
-func testSign(t *testing.T, signer *signer.VaultSigner, keyType string) {
-	publicKey := signer.Public()
+func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, keyConfig *signer.KeyConfig) {
+	if keyConfig == nil {
+		keyConfig = &signer.KeyConfig{}
+	}
+
+	publicKey := vsigner.Public()
 	if publicKey == nil {
 		t.Fatalf("invalid public key")
 	}
 
 	testDigest := []byte(newUUID(t))
-	signature, err := signer.Sign(nil, testDigest, nil)
+	signature, err := vsigner.Sign(nil, testDigest, nil)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -134,8 +140,16 @@ func testSign(t *testing.T, signer *signer.VaultSigner, keyType string) {
 	case "rsa-2048", "rsa-3072", "rsa-4096":
 		hash := sha256.Sum256(testDigest)
 		rsaPublicKey := publicKey.(*rsa.PublicKey)
-		if err := rsa.VerifyPSS(rsaPublicKey, crypto.SHA256, hash[:], signature, nil); err != nil {
-			t.Fatalf("signature does not verify")
+
+		switch keyConfig.SignatureAlgorithm {
+		case signer.SignatureAlgorithmPKCS1v15:
+			if err := rsa.VerifyPKCS1v15(rsaPublicKey, crypto.SHA256, hash[:], signature); err != nil {
+				t.Fatalf("signature does not verify")
+			}
+		default:
+			if err := rsa.VerifyPSS(rsaPublicKey, crypto.SHA256, hash[:], signature, nil); err != nil {
+				t.Fatalf("signature does not verify")
+			}
 		}
 	case "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
 		hash := sha256.Sum256(testDigest)
@@ -160,17 +174,19 @@ func testSign(t *testing.T, signer *signer.VaultSigner, keyType string) {
 	}
 }
 
-func testSigner(t *testing.T, client *api.Client, keyType string, derived bool) (*signer.VaultSigner, error) {
+func testSigner(t *testing.T, client *api.Client, keyType string, derived bool, keyConfig *signer.KeyConfig) (*signer.VaultSigner, error) {
 	mountPath, keyName := createTransitMount(t, client, keyType, derived)
+	config := keyConfig
+	if keyConfig == nil {
+		config = &signer.KeyConfig{}
+	}
+	config.MountPath = mountPath
+	config.KeyName = keyName
 
-	keyConfig := &signer.KeyConfig{
-		MountPath: mountPath,
-		KeyName:   keyName,
-	}
 	if derived {
-		keyConfig.Context = []byte(newUUID(t))
+		config.Context = []byte(newUUID(t))
 	}
-	return signer.NewVaultSigner(client, keyConfig)
+	return signer.NewVaultSigner(client, config)
 }
 
 func createTransitMount(t *testing.T, client *api.Client, keyType string, derived bool) (string, string) {
