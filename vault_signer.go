@@ -148,8 +148,33 @@ func (s *VaultSigner) Public() crypto.PublicKey {
 }
 
 func (s *VaultSigner) retrieveKey() error {
-	keyInfo, err := s.retrieveKeyInfo()
+	keyPath := s.buildKeyPath("keys")
+
+	// context is ignored if the key is not derived so it is always sent
+	var context string
+	if len(s.context) > 0 {
+		context = base64.StdEncoding.EncodeToString(s.context)
+	}
+	rsp, err := s.vaultClient.Logical().ReadWithData(keyPath, map[string][]string{
+		"context": {
+			context,
+		},
+	})
 	if err != nil {
+		return err
+	}
+
+	keyInfo := struct {
+		Derived            bool   `mapstructure:"derived"`
+		SupportsSigning    bool   `mapstructure:"supports_signing"`
+		SupportsDerivation bool   `mapstructure:"supports_derivation"`
+		KeyType            string `mapstructure:"type"`
+		Keys               map[int]struct {
+			PublicKey string `mapstructure:"public_key"`
+		} `mapstructure:"keys"`
+		LatestVersion int `mapstructure:"latest_version"`
+	}{}
+	if err := mapstructure.WeakDecode(rsp.Data, &keyInfo); err != nil {
 		return err
 	}
 
@@ -183,41 +208,6 @@ func (s *VaultSigner) retrieveKey() error {
 	s.publicKey = publicKey
 
 	return nil
-}
-
-type keyInfo struct {
-	Derived            bool   `mapstructure:"derived"`
-	SupportsSigning    bool   `mapstructure:"supports_signing"`
-	SupportsDerivation bool   `mapstructure:"supports_derivation"`
-	KeyType            string `mapstructure:"type"`
-	Keys               map[int]struct {
-		PublicKey string `mapstructure:"public_key"`
-	} `mapstructure:"keys"`
-	LatestVersion int `mapstructure:"latest_version"`
-}
-
-func (s *VaultSigner) retrieveKeyInfo() (*keyInfo, error) {
-	keyPath := s.buildKeyPath("keys")
-
-	var context string
-	if len(s.context) > 0 {
-		context = base64.StdEncoding.EncodeToString(s.context)
-	}
-	rsp, err := s.vaultClient.Logical().ReadWithData(keyPath, map[string][]string{
-		"context": {
-			context,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	keyInfo := new(keyInfo)
-	if err := mapstructure.WeakDecode(rsp.Data, keyInfo); err != nil {
-		return nil, err
-	}
-
-	return keyInfo, nil
 }
 
 func (s *VaultSigner) buildKeyPath(operation string) string {
