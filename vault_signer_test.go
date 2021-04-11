@@ -278,7 +278,7 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 
 	dockerOptions := &dockertest.RunOptions{
 		Repository: "hashicorp/vault-enterprise",
-		Tag:        "1.7.0-rc1_ent",
+		Tag:        "latest",
 		Cmd: []string{"server", "-log-level=trace", "-dev", "-dev-three-node", fmt.Sprintf("-dev-root-token-id=%s", testToken),
 			"-dev-listen-address=0.0.0.0:8200"},
 		Env:    []string{"VAULT_DEV_TEMP_DIR=/tmp"},
