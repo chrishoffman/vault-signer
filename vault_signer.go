@@ -63,6 +63,9 @@ type KeyConfig struct {
 // Note that if namespaces are being used that they can be set on the Vault client, explicitly
 // in the key config, or both where they will be combined.
 func NewVaultSigner(vaultClient *api.Client, keyConfig *KeyConfig) (*VaultSigner, error) {
+	if vaultClient == nil {
+		return nil, errors.New("vault client is required")
+	}
 	if keyConfig.MountPath == "" {
 		return nil, errors.New("key mount path is required")
 	}
@@ -165,14 +168,12 @@ func (s *VaultSigner) retrieveKey() error {
 	}
 
 	keyInfo := struct {
-		Derived            bool   `mapstructure:"derived"`
-		SupportsSigning    bool   `mapstructure:"supports_signing"`
-		SupportsDerivation bool   `mapstructure:"supports_derivation"`
-		KeyType            string `mapstructure:"type"`
-		Keys               map[int]struct {
-			PublicKey string `mapstructure:"public_key"`
-		} `mapstructure:"keys"`
-		LatestVersion int `mapstructure:"latest_version"`
+		Derived            bool        `mapstructure:"derived"`
+		SupportsSigning    bool        `mapstructure:"supports_signing"`
+		SupportsDerivation bool        `mapstructure:"supports_derivation"`
+		KeyType            string      `mapstructure:"type"`
+		Keys               interface{} `mapstructure:"keys"`
+		LatestVersion      int         `mapstructure:"latest_version"`
 	}{}
 	if err := mapstructure.WeakDecode(rsp.Data, &keyInfo); err != nil {
 		return err
@@ -201,7 +202,14 @@ func (s *VaultSigner) retrieveKey() error {
 		return errors.New("unsupported key type")
 	}
 
-	publicKey, err := s.createPublicKey(keyInfo.Keys[keyInfo.LatestVersion].PublicKey)
+	publicKeyInfo := map[int]struct {
+		PublicKey string `mapstructure:"public_key"`
+	}{}
+	if err := mapstructure.WeakDecode(keyInfo.Keys, &publicKeyInfo); err != nil {
+		return err
+	}
+
+	publicKey, err := s.createPublicKey(publicKeyInfo[keyInfo.LatestVersion].PublicKey)
 	if err != nil {
 		return err
 	}

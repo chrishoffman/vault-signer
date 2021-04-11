@@ -22,7 +22,36 @@ import (
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
 
-func TestSign(t *testing.T) {
+func TestNew_ValidateConstructor(t *testing.T) {
+	_, err := signer.NewVaultSigner(nil, nil)
+	if err == nil {
+		t.Fatal("error expected")
+	}
+
+	vaultConfig := api.DefaultConfig()
+	vaultClient, err := api.NewClient(vaultConfig)
+	if err != nil {
+		t.Fatalf("error creating vault client")
+	}
+
+	keyConfig := &signer.KeyConfig{
+		KeyName: "test",
+	}
+	_, err = signer.NewVaultSigner(vaultClient, keyConfig)
+	if err == nil {
+		t.Fatalf("error expected")
+	}
+
+	keyConfig = &signer.KeyConfig{
+		MountPath: "test",
+	}
+	_, err = signer.NewVaultSigner(vaultClient, keyConfig)
+	if err == nil {
+		t.Fatalf("error expected")
+	}
+}
+
+func Test_DockerTests(t *testing.T) {
 	cleanup, client := prepareTestContainer(t)
 	defer cleanup()
 
@@ -44,27 +73,48 @@ func TestSign(t *testing.T) {
 		for _, tt := range tests {
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			t.Run(testName, func(t *testing.T) {
-				testSign(t, client, tt.keyType, tt.derived)
+				signer, err := testSigner(t, client, tt.keyType, tt.derived)
+				if err != nil {
+					t.Fatalf("error creating signer: %v", err)
+				}
+				testSign(t, signer, tt.keyType)
 			})
+		}
+	})
+
+	t.Run("clone with context, not derived", func(t *testing.T) {
+		signer, err := testSigner(t, client, "rsa-2048", false)
+		if err != nil {
+			t.Fatalf("error creating signer: %v", err)
+		}
+		_, err = signer.CloneWithContext([]byte("abc"))
+		if err == nil {
+			t.Fatalf("should not be able to clone non-derived signer")
+		}
+	})
+
+	t.Run("clone with context, derived", func(t *testing.T) {
+		signer, err := testSigner(t, client, "ed25519", true)
+		if err != nil {
+			t.Fatalf("error creating signer: %v", err)
+		}
+
+		clonedSigner, err := signer.CloneWithContext([]byte("abc"))
+		if err != nil {
+			t.Fatalf("should not be able to clone non-derived signer")
+		}
+		testSign(t, clonedSigner, "ed25519")
+	})
+
+	t.Run("key does not support signing", func(t *testing.T) {
+		_, err := testSigner(t, client, "aes256-gcm96", true)
+		if err == nil {
+			t.Fatalf("creating signer that does not support signing should have errored")
 		}
 	})
 }
 
-func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
-	mountPath, keyName := createTransitMount(t, client, keyType, derived)
-
-	keyConfig := &signer.KeyConfig{
-		MountPath: mountPath,
-		KeyName:   keyName,
-	}
-	if derived {
-		keyConfig.Context = []byte(newUUID(t))
-	}
-	signer, err := signer.NewVaultSigner(client, keyConfig)
-	if err != nil {
-		t.Fatalf("err: %s", err)
-	}
-
+func testSign(t *testing.T, signer *signer.VaultSigner, keyType string) {
 	publicKey := signer.Public()
 	if publicKey == nil {
 		t.Fatalf("invalid public key")
@@ -108,6 +158,19 @@ func testSign(t *testing.T, client *api.Client, keyType string, derived bool) {
 	default:
 		t.Fatalf("no verification function")
 	}
+}
+
+func testSigner(t *testing.T, client *api.Client, keyType string, derived bool) (*signer.VaultSigner, error) {
+	mountPath, keyName := createTransitMount(t, client, keyType, derived)
+
+	keyConfig := &signer.KeyConfig{
+		MountPath: mountPath,
+		KeyName:   keyName,
+	}
+	if derived {
+		keyConfig.Context = []byte(newUUID(t))
+	}
+	return signer.NewVaultSigner(client, keyConfig)
 }
 
 func createTransitMount(t *testing.T, client *api.Client, keyType string, derived bool) (string, string) {
