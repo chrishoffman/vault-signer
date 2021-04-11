@@ -61,11 +61,11 @@ type SignerConfig struct {
 	Context []byte
 
 	// HashAlgorithm is the hash algorithm used in the signing operation. It is only supported
-	// for RSA and ECDSA keys.
+	// for RSA and ECDSA keys. If unset for supported keys, the value will default to sha2-256.
 	HashAlgorithm HashAlgorithm
 
 	// SignatureAlgorithm is the signature algorithm used in the signing operation. It is only
-	// support for RSA keys.
+	// support for RSA keys. If unset for supported keys, the value will default to pss.
 	SignatureAlgorithm SignatureAlgorithm
 }
 
