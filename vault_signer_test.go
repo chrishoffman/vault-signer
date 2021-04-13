@@ -64,17 +64,17 @@ func Test_DockerTests(t *testing.T) {
 			signerConfig *signer.SignerConfig
 		}{
 			{"rsa-2048", false, nil},
-			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15}},
-			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha1}},
-			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha224}},
-			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha256}},
-			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha384}},
-			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmPKCS1v15, HashAlgorithm: signer.HashAlgorithmSha512}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha1}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha224}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha256}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha384}},
+			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha512}},
 			{"rsa-3072", false, nil},
 			{"rsa-4096", false, nil},
 			{"ecdsa-p256", false, nil},
@@ -176,12 +176,12 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 		rsaPublicKey := publicKey.(*rsa.PublicKey)
 
 		switch signerConfig.SignatureAlgorithm {
-		case signer.SignatureAlgorithmPKCS1v15:
-			if err := rsa.VerifyPKCS1v15(rsaPublicKey, algo, hash, signature); err != nil {
+		case signer.SignatureAlgorithmRSAPSS:
+			if err := rsa.VerifyPSS(rsaPublicKey, algo, hash, signature, nil); err != nil {
 				t.Fatalf("signature does not verify")
 			}
 		default:
-			if err := rsa.VerifyPSS(rsaPublicKey, algo, hash, signature, nil); err != nil {
+			if err := rsa.VerifyPKCS1v15(rsaPublicKey, algo, hash, signature); err != nil {
 				t.Fatalf("signature does not verify")
 			}
 		}

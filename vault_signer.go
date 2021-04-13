@@ -65,7 +65,7 @@ type SignerConfig struct {
 	HashAlgorithm HashAlgorithm
 
 	// SignatureAlgorithm is the signature algorithm used in the signing operation. It is only
-	// support for RSA keys. If unset for supported keys, the value will default to pss.
+	// support for RSA keys. If unset for supported keys, the value will default to PKCS#1v15.
 	SignatureAlgorithm SignatureAlgorithm
 }
 
@@ -82,8 +82,8 @@ const (
 type SignatureAlgorithm string
 
 const (
-	SignatureAlgorithmPSS      SignatureAlgorithm = "pss"
-	SignatureAlgorithmPKCS1v15                    = "pkcs1v15"
+	SignatureAlgorithmRSAPSS      SignatureAlgorithm = "pss"
+	SignatureAlgorithmRSAPKCS1v15                    = "pkcs1v15"
 )
 
 // NewVaultSigner creates a signer the leverages HashiCorp Vault's transit engine to sign
@@ -134,6 +134,13 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 		return nil, err
 	}
 
+	if signer.keyType != keyTypeRsa && signer.keyType != keyTypeEcdsa && signer.hashAlgorithm != "" {
+		return nil, errors.New("hash algorithm can only be set for RSA and ECDSA keys")
+	}
+	if signer.keyType != keyTypeRsa && signer.signatureAlgorithm != "" {
+		return nil, errors.New("signature algorithm can only be set for RSA keys")
+	}
+
 	return signer, nil
 }
 
@@ -150,8 +157,9 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]b
 
 	switch s.keyType {
 	case keyTypeRsa:
-		if s.signatureAlgorithm != "" {
-			requestData["signature_algorithm"] = s.signatureAlgorithm
+		requestData["signature_algorithm"] = s.signatureAlgorithm
+		if s.signatureAlgorithm == "" {
+			requestData["signature_algorithm"] = SignatureAlgorithmRSAPKCS1v15
 		}
 		fallthrough
 	case keyTypeEcdsa:
