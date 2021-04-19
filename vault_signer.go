@@ -172,6 +172,9 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]b
 	if err != nil {
 		return nil, err
 	}
+	if rsp == nil {
+		return nil, errors.New("no secret returned")
+	}
 
 	sig, ok := rsp.Data["signature"]
 	if !ok {
