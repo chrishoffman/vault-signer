@@ -10,9 +10,7 @@ import (
 	"crypto/sha512"
 	"encoding/asn1"
 	"fmt"
-	"io/ioutil"
 	"math/big"
-	"os"
 	"path"
 	"testing"
 
@@ -278,14 +276,7 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
-
 	testToken := testUUID.String()
-
-	var tempDir string
-	tempDir, err = ioutil.TempDir("", "derived_jwt")
-	if err != nil {
-		t.Error(err)
-	}
 
 	pool, err := dockertest.NewPool("")
 	if err != nil {
@@ -295,10 +286,8 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 	dockerOptions := &dockertest.RunOptions{
 		Repository: "hashicorp/vault-enterprise",
 		Tag:        "latest",
-		Cmd: []string{"server", "-log-level=trace", "-dev", "-dev-three-node", fmt.Sprintf("-dev-root-token-id=%s", testToken),
+		Cmd: []string{"server", "-log-level=trace", "-dev", fmt.Sprintf("-dev-root-token-id=%s", testToken),
 			"-dev-listen-address=0.0.0.0:8200"},
-		Env:    []string{"VAULT_DEV_TEMP_DIR=/tmp"},
-		Mounts: []string{fmt.Sprintf("%s:/tmp", tempDir)},
 	}
 	resource, err := pool.RunWithOptions(dockerOptions)
 	if err != nil {
@@ -306,36 +295,25 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 	}
 
 	cleanup := func() {
-		if err := os.RemoveAll(tempDir); err != nil {
-			t.Fatalf("error removing temp directory: %s", err)
-		}
-
 		if err := pool.Purge(resource); err != nil {
 			t.Fatalf("Failed to cleanup local container: %s", err)
 		}
 	}
 
-	retAddress := fmt.Sprintf("https://127.0.0.1:%s", resource.GetPort("8200/tcp"))
-	tlsConfig := &api.TLSConfig{
-		CACert:     path.Join(tempDir, "ca_cert.pem"),
-		ClientCert: path.Join(tempDir, "node1_port_8200_cert.pem"),
-		ClientKey:  path.Join(tempDir, "node1_port_8200_key.pem"),
+	vaultConfig := api.DefaultConfig()
+	vaultConfig.Address = fmt.Sprintf("http://127.0.0.1:%s", resource.GetPort("8200/tcp"))
+	tlsConfig := &api.TLSConfig{Insecure: true}
+	if err := vaultConfig.ConfigureTLS(tlsConfig); err != nil {
+		t.Fatalf("Failed to setup tls: %s", err)
 	}
+	client, err := api.NewClient(vaultConfig)
+	if err != nil {
+		t.Fatalf("Failed to set up API client: %s", err)
+	}
+	client.SetToken(testToken)
 
 	// exponential backoff-retry
-	var client *api.Client
 	if err = pool.Retry(func() error {
-		vaultConfig := api.DefaultConfig()
-		vaultConfig.Address = retAddress
-		if err := vaultConfig.ConfigureTLS(tlsConfig); err != nil {
-			return err
-		}
-		client, err = api.NewClient(vaultConfig)
-		if err != nil {
-			return err
-		}
-		client.SetToken(testToken)
-
 		// Unmount default kv mount to ensure availability
 		if err := client.Sys().Unmount("kv"); err != nil {
 			return err
