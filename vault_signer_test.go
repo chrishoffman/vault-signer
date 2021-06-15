@@ -302,10 +302,6 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 
 	vaultConfig := api.DefaultConfig()
 	vaultConfig.Address = fmt.Sprintf("http://127.0.0.1:%s", resource.GetPort("8200/tcp"))
-	tlsConfig := &api.TLSConfig{Insecure: true}
-	if err := vaultConfig.ConfigureTLS(tlsConfig); err != nil {
-		t.Fatalf("Failed to setup tls: %s", err)
-	}
 	client, err := api.NewClient(vaultConfig)
 	if err != nil {
 		t.Fatalf("Failed to set up API client: %s", err)
