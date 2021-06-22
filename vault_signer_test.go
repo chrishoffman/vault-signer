@@ -131,6 +131,7 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("namespace support", func(t *testing.T) {
+		t.Skip()
 		namespacePath := newUUID(t)
 		if _, err := client.Logical().Write(path.Join("sys/namespaces", namespacePath), map[string]interface{}{}); err != nil {
 			t.Fatalf("error creating namespace: %s", err)
