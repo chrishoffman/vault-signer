@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/asn1"
+	"flag"
 	"fmt"
 	"math/big"
 	"path"
@@ -21,6 +22,7 @@ import (
 )
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
+var enterprise = flag.Bool("enterprise", false, "Use Vault Enterprise")
 
 func TestNew_ValidateConstructor(t *testing.T) {
 	_, err := signer.NewVaultSigner(nil, nil)
@@ -131,7 +133,9 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("namespace support", func(t *testing.T) {
-		t.Skip()
+		if !*enterprise {
+			t.Skip()
+		}
 		namespacePath := newUUID(t)
 		if _, err := client.Logical().Write(path.Join("sys/namespaces", namespacePath), map[string]interface{}{}); err != nil {
 			t.Fatalf("error creating namespace: %s", err)
@@ -284,8 +288,13 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 		t.Fatalf("Failed to connect to docker: %s", err)
 	}
 
+	dockerImage := "hashicorp/vault"
+	if *enterprise {
+		dockerImage = "hashicorp/vault-enterprise"
+	}
+
 	dockerOptions := &dockertest.RunOptions{
-		Repository: "hashicorp/vault",
+		Repository: dockerImage,
 		Tag:        "latest",
 		Cmd: []string{"server", "-log-level=trace", "-dev", fmt.Sprintf("-dev-root-token-id=%s", testToken),
 			"-dev-listen-address=0.0.0.0:8200"},
