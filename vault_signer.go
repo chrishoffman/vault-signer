@@ -73,17 +73,17 @@ type HashAlgorithm string
 
 const (
 	HashAlgorithmSha1   HashAlgorithm = "sha1"
-	HashAlgorithmSha224               = "sha2-224"
-	HashAlgorithmSha256               = "sha2-256"
-	HashAlgorithmSha384               = "sha2-384"
-	HashAlgorithmSha512               = "sha2-512"
+	HashAlgorithmSha224 HashAlgorithm = "sha2-224"
+	HashAlgorithmSha256 HashAlgorithm = "sha2-256"
+	HashAlgorithmSha384 HashAlgorithm = "sha2-384"
+	HashAlgorithmSha512 HashAlgorithm = "sha2-512"
 )
 
 type SignatureAlgorithm string
 
 const (
 	SignatureAlgorithmRSAPSS      SignatureAlgorithm = "pss"
-	SignatureAlgorithmRSAPKCS1v15                    = "pkcs1v15"
+	SignatureAlgorithmRSAPKCS1v15 SignatureAlgorithm = "pkcs1v15"
 )
 
 // NewVaultSigner creates a signer the leverages HashiCorp Vault's transit engine to sign
