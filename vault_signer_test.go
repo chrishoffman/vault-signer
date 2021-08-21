@@ -23,6 +23,7 @@ import (
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
 var enterprise = flag.Bool("enterprise", false, "Use Vault Enterprise")
+var license = flag.String("license", "", "Vault Enterprise license")
 
 func TestNew_ValidateConstructor(t *testing.T) {
 	_, err := signer.NewVaultSigner(nil, nil)
@@ -298,6 +299,9 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 		Tag:        "latest",
 		Cmd: []string{"server", "-log-level=trace", "-dev", fmt.Sprintf("-dev-root-token-id=%s", testToken),
 			"-dev-listen-address=0.0.0.0:8200"},
+		Env: []string{
+			fmt.Sprintf("VAULT_LICENSE=%s", *license),
+		},
 	}
 	resource, err := pool.RunWithOptions(dockerOptions)
 	if err != nil {
