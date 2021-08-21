@@ -12,8 +12,10 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
+	"net"
 	"path"
 	"testing"
+	"time"
 
 	signer "github.com/chrishoffman/vault-signer"
 	"github.com/google/uuid"
@@ -314,16 +316,35 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 		}
 	}
 
-	vaultConfig := api.DefaultConfig()
-	vaultConfig.Address = fmt.Sprintf("http://172.17.0.1:%s", resource.GetPort("8200/tcp"))
-	client, err := api.NewClient(vaultConfig)
-	if err != nil {
-		t.Fatalf("Failed to set up API client: %s", err)
-	}
-	client.SetToken(testToken)
+	var client *api.Client
 
 	// exponential backoff-retry
 	if err = pool.Retry(func() error {
+		vaultConfig := api.DefaultConfig()
+		vaultPort := resource.GetPort("8200/tcp")
+
+		// various installation of docker have different host and port settings, ensure
+		// vault is listening before setting up client
+		var dockerAddress string
+		dockerHosts := []string{"172.17.0.1", "host.docker.internal", "127.0.0.1"}
+		for _, host := range dockerHosts {
+			dockerAddress = net.JoinHostPort(host, vaultPort)
+			conn, err := net.DialTimeout("tcp", dockerAddress, time.Second)
+			if err != nil {
+				continue
+			}
+			if conn != nil {
+				conn.Close()
+			}
+		}
+
+		vaultConfig.Address = fmt.Sprintf("http://%s", dockerAddress)
+		client, err = api.NewClient(vaultConfig)
+		if err != nil {
+			t.Fatalf("Failed to set up API client: %s", err)
+		}
+		client.SetToken(testToken)
+
 		// Unmount default kv mount to ensure availability
 		if err := client.Sys().Unmount("kv"); err != nil {
 			return err
