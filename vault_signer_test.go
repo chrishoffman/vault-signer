@@ -57,8 +57,7 @@ func TestNew_ValidateConstructor(t *testing.T) {
 }
 
 func Test_DockerTests(t *testing.T) {
-	cleanup, client := prepareTestContainer(t)
-	defer cleanup()
+	client := prepareTestContainer(t)
 
 	t.Run("sign", func(t *testing.T) {
 		var tests = []struct {
@@ -95,6 +94,7 @@ func Test_DockerTests(t *testing.T) {
 		for _, tt := range tests {
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			t.Run(testName, func(t *testing.T) {
+				t.Parallel()
 				signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.signerConfig)
 				if err != nil {
 					t.Fatalf("error creating signer: %v", err)
@@ -105,6 +105,7 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("clone with context, not derived", func(t *testing.T) {
+		t.Parallel()
 		signer, err := testSigner(t, client, "rsa-2048", false, nil)
 		if err != nil {
 			t.Fatalf("error creating signer: %v", err)
@@ -116,6 +117,7 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("clone with context, derived", func(t *testing.T) {
+		t.Parallel()
 		signer, err := testSigner(t, client, "ed25519", true, nil)
 		if err != nil {
 			t.Fatalf("error creating signer: %v", err)
@@ -129,6 +131,7 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("key does not support signing", func(t *testing.T) {
+		t.Parallel()
 		_, err := testSigner(t, client, "aes256-gcm96", true, nil)
 		if err == nil {
 			t.Fatalf("creating signer that does not support signing should have errored")
@@ -279,7 +282,7 @@ func newUUID(t *testing.T) string {
 	return generatedUUID.String()
 }
 
-func prepareTestContainer(t *testing.T) (func(), *api.Client) {
+func prepareTestContainer(t *testing.T) *api.Client {
 	testUUID, err := uuid.NewUUID()
 	if err != nil {
 		t.Fatalf("err: %s", err)
@@ -310,11 +313,11 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 		t.Fatalf("Could not start local Vault docker container: %s", err)
 	}
 
-	cleanup := func() {
+	t.Cleanup(func() {
 		if err := pool.Purge(resource); err != nil {
 			t.Fatalf("Failed to cleanup local container: %s", err)
 		}
-	}
+	})
 
 	var client *api.Client
 
@@ -352,8 +355,8 @@ func prepareTestContainer(t *testing.T) (func(), *api.Client) {
 
 		return nil
 	}); err != nil {
-		cleanup()
 		t.Fatalf("Could not connect to vault: %s", err)
 	}
-	return cleanup, client
+
+	return client
 }
