@@ -94,7 +94,7 @@ func Test_DockerTests(t *testing.T) {
 		for _, tt := range tests {
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			t.Run(testName, func(t *testing.T) {
-				t.Parallel()
+				//t.Parallel()
 				signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.signerConfig)
 				if err != nil {
 					t.Fatalf("error creating signer: %v", err)
