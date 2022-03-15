@@ -39,6 +39,7 @@ type VaultSigner struct {
 	// key type specific configuration
 	hashAlgorithm      HashAlgorithm
 	signatureAlgorithm SignatureAlgorithm
+	prehashed          bool
 
 	// key properties
 	derived bool
@@ -67,6 +68,9 @@ type SignerConfig struct {
 	// SignatureAlgorithm is the signature algorithm used in the signing operation. It is only
 	// support for RSA keys. If unset for supported keys, the value will default to PKCS#1v15.
 	SignatureAlgorithm SignatureAlgorithm
+
+	// Prehashed is used when the digest being provided to the signer is already hashed
+	Prehashed bool
 }
 
 type HashAlgorithm string
@@ -107,10 +111,16 @@ func NewVaultSigner(vaultClient *api.Client, signerConfig *SignerConfig) (*Vault
 		context:            signerConfig.Context,
 		signatureAlgorithm: signerConfig.SignatureAlgorithm,
 		hashAlgorithm:      signerConfig.HashAlgorithm,
+		prehashed:          signerConfig.Prehashed,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
 	}
+
+	if signer.keyType != keyTypeRsa && signer.keyType != keyTypeEcdsa && signer.prehashed {
+		return nil, errors.New("prehashed can only be set for RSA and ECDSA keys")
+	}
+
 	return signer, nil
 }
 
@@ -129,6 +139,7 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 		context:     context,
 		derived:     s.derived,
 		keyType:     s.keyType,
+		prehashed:   s.prehashed,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
@@ -162,10 +173,11 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]b
 			requestData["signature_algorithm"] = SignatureAlgorithmRSAPKCS1v15
 		}
 		fallthrough
-	case keyTypeEcdsa:
+	case keyTypeEcdsa: // RSA and ECDSA keys
 		if s.hashAlgorithm != "" {
 			requestData["hash_algorithm"] = s.hashAlgorithm
 		}
+		requestData["prehashed"] = s.prehashed
 	}
 
 	rsp, err := s.vaultClient.Logical().Write(s.buildKeyPath("sign"), requestData)

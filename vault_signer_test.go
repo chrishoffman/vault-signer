@@ -69,6 +69,7 @@ func Test_DockerTests(t *testing.T) {
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256, Prehashed: true}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS}},
@@ -83,6 +84,7 @@ func Test_DockerTests(t *testing.T) {
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256, Prehashed: true}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
 			{"ecdsa-p384", false, nil},
@@ -171,7 +173,14 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 	}
 
 	testDigest := []byte(newUUID(t))
-	signature, err := vsigner.Sign(nil, testDigest, nil)
+
+	signerDigest := testDigest
+	algo, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
+	if signerConfig.Prehashed {
+		signerDigest = hash
+	}
+
+	signature, err := vsigner.Sign(nil, signerDigest, nil)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -182,7 +191,6 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 
 	switch keyType {
 	case "rsa-2048", "rsa-3072", "rsa-4096":
-		algo, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
 		rsaPublicKey := publicKey.(*rsa.PublicKey)
 
 		switch signerConfig.SignatureAlgorithm {
