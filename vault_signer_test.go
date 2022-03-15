@@ -204,7 +204,6 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 			}
 		}
 	case "ecdsa-p256", "ecdsa-p384", "ecdsa-p521":
-		_, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
 		sig := struct {
 			R, S *big.Int
 		}{}
