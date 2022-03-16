@@ -69,9 +69,9 @@ func Test_DockerTests(t *testing.T) {
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
-			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256, Prehashed: true}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
+			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmPrehashed}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha224}},
@@ -84,9 +84,9 @@ func Test_DockerTests(t *testing.T) {
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha224}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
-			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256, Prehashed: true}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
+			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmPrehashed}},
 			{"ecdsa-p384", false, nil},
 			{"ecdsa-p521", false, nil},
 			{"ed25519", false, nil},
@@ -173,14 +173,12 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 	}
 
 	testDigest := []byte(newUUID(t))
-
-	signerDigest := testDigest
 	algo, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
-	if signerConfig.Prehashed {
-		signerDigest = hash
+	if signerConfig.HashAlgorithm == signer.HashAlgorithmPrehashed {
+		testDigest = hash
 	}
 
-	signature, err := vsigner.Sign(nil, signerDigest, nil)
+	signature, err := vsigner.Sign(nil, testDigest, nil)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -239,7 +237,7 @@ func hashValue(algo signer.HashAlgorithm, data []byte) (crypto.Hash, []byte) {
 	case signer.HashAlgorithmSha512:
 		sum := sha512.Sum512(data)
 		return crypto.SHA512, sum[:]
-	default: // signer.HashAlgorithmSha256:
+	default: // signer.HashAlgorithmSha256, signer.HashAlgorthmPrehashed:
 		sum := sha256.Sum256(data)
 		return crypto.SHA256, sum[:]
 	}
