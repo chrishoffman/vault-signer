@@ -39,7 +39,6 @@ type VaultSigner struct {
 	// key type specific configuration
 	hashAlgorithm      HashAlgorithm
 	signatureAlgorithm SignatureAlgorithm
-	prehashed          bool
 
 	// key properties
 	derived bool
@@ -68,19 +67,17 @@ type SignerConfig struct {
 	// SignatureAlgorithm is the signature algorithm used in the signing operation. It is only
 	// support for RSA keys. If unset for supported keys, the value will default to PKCS#1v15.
 	SignatureAlgorithm SignatureAlgorithm
-
-	// Prehashed is used when the digest being provided to the signer is already hashed
-	Prehashed bool
 }
 
 type HashAlgorithm string
 
 const (
-	HashAlgorithmSha1   HashAlgorithm = "sha1"
-	HashAlgorithmSha224 HashAlgorithm = "sha2-224"
-	HashAlgorithmSha256 HashAlgorithm = "sha2-256"
-	HashAlgorithmSha384 HashAlgorithm = "sha2-384"
-	HashAlgorithmSha512 HashAlgorithm = "sha2-512"
+	HashAlgorithmSha1      HashAlgorithm = "sha1"
+	HashAlgorithmSha224    HashAlgorithm = "sha2-224"
+	HashAlgorithmSha256    HashAlgorithm = "sha2-256"
+	HashAlgorithmSha384    HashAlgorithm = "sha2-384"
+	HashAlgorithmSha512    HashAlgorithm = "sha2-512"
+	HashAlgorithmPrehashed HashAlgorithm = "prehashed"
 )
 
 type SignatureAlgorithm string
@@ -111,14 +108,9 @@ func NewVaultSigner(vaultClient *api.Client, signerConfig *SignerConfig) (*Vault
 		context:            signerConfig.Context,
 		signatureAlgorithm: signerConfig.SignatureAlgorithm,
 		hashAlgorithm:      signerConfig.HashAlgorithm,
-		prehashed:          signerConfig.Prehashed,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
-	}
-
-	if signer.keyType != keyTypeRsa && signer.keyType != keyTypeEcdsa && signer.prehashed {
-		return nil, errors.New("prehashed can only be set for RSA and ECDSA keys")
 	}
 
 	return signer, nil
@@ -139,17 +131,9 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 		context:     context,
 		derived:     s.derived,
 		keyType:     s.keyType,
-		prehashed:   s.prehashed,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
-	}
-
-	if signer.keyType != keyTypeRsa && signer.keyType != keyTypeEcdsa && signer.hashAlgorithm != "" {
-		return nil, errors.New("hash algorithm can only be set for RSA and ECDSA keys")
-	}
-	if signer.keyType != keyTypeRsa && signer.signatureAlgorithm != "" {
-		return nil, errors.New("signature algorithm can only be set for RSA keys")
 	}
 
 	return signer, nil
@@ -174,10 +158,13 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]b
 		}
 		fallthrough
 	case keyTypeEcdsa: // RSA and ECDSA keys
-		if s.hashAlgorithm != "" {
+		switch s.hashAlgorithm {
+		case "":
+		case HashAlgorithmPrehashed:
+			requestData["prehashed"] = true
+		default:
 			requestData["hash_algorithm"] = s.hashAlgorithm
 		}
-		requestData["prehashed"] = s.prehashed
 	}
 
 	rsp, err := s.vaultClient.Logical().Write(s.buildKeyPath("sign"), requestData)
@@ -260,6 +247,13 @@ func (s *VaultSigner) retrieveKey() error {
 		s.keyType = keyTypeEd25519
 	default:
 		return errors.New("unsupported key type")
+	}
+
+	if s.keyType != keyTypeRsa && s.keyType != keyTypeEcdsa && s.hashAlgorithm != "" {
+		return errors.New("hash algorithm can only be set for RSA and ECDSA keys")
+	}
+	if s.keyType != keyTypeRsa && s.signatureAlgorithm != "" {
+		return errors.New("signature algorithm can only be set for RSA keys")
 	}
 
 	publicKeyInfo := map[int]struct {
