@@ -21,7 +21,6 @@ import (
 	"time"
 
 	signer "github.com/chrishoffman/vault-signer"
-	vaultsigner "github.com/chrishoffman/vault-signer"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/ory/dockertest"
@@ -118,9 +117,9 @@ func Test_DockerTests(t *testing.T) {
 	t.Run("x509-sign", func(t *testing.T) {
 		t.Parallel()
 
-		signerConfig := &vaultsigner.SignerConfig{
-			HashAlgorithm:      vaultsigner.HashAlgorithmSha256,
-			SignatureAlgorithm: vaultsigner.SignatureAlgorithmRSAPKCS1v15,
+		signerConfig := &signer.SignerConfig{
+			HashAlgorithm:      signer.HashAlgorithmSha256,
+			SignatureAlgorithm: signer.SignatureAlgorithmRSAPKCS1v15,
 		}
 		signer, err := testSigner(t, client, "rsa-4096", false, signerConfig)
 		if err != nil {
