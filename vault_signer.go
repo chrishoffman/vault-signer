@@ -72,12 +72,11 @@ type SignerConfig struct {
 type HashAlgorithm string
 
 const (
-	HashAlgorithmSha1      HashAlgorithm = "sha1"
-	HashAlgorithmSha224    HashAlgorithm = "sha2-224"
-	HashAlgorithmSha256    HashAlgorithm = "sha2-256"
-	HashAlgorithmSha384    HashAlgorithm = "sha2-384"
-	HashAlgorithmSha512    HashAlgorithm = "sha2-512"
-	HashAlgorithmPrehashed HashAlgorithm = "prehashed"
+	HashAlgorithmSha1   HashAlgorithm = "sha1"
+	HashAlgorithmSha224 HashAlgorithm = "sha2-224"
+	HashAlgorithmSha256 HashAlgorithm = "sha2-256"
+	HashAlgorithmSha384 HashAlgorithm = "sha2-384"
+	HashAlgorithmSha512 HashAlgorithm = "sha2-512"
 )
 
 type SignatureAlgorithm string
@@ -141,7 +140,7 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 
 // Sign is part of the crypto.Signer interface and signs a given digest with the configured key
 // in Vault's transit secrets engine
-func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]byte, error) {
+func (s *VaultSigner) Sign(_ io.Reader, digest []byte, signerOpts crypto.SignerOpts) ([]byte, error) {
 	requestData := map[string]interface{}{
 		"input": base64.StdEncoding.EncodeToString(digest),
 	}
@@ -158,12 +157,16 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, _ crypto.SignerOpts) ([]b
 		}
 		fallthrough
 	case keyTypeEcdsa: // RSA and ECDSA keys
-		switch s.hashAlgorithm {
-		case "":
-		case HashAlgorithmPrehashed:
-			requestData["prehashed"] = true
-		default:
+		if s.hashAlgorithm != "" {
 			requestData["hash_algorithm"] = s.hashAlgorithm
+		}
+
+		// The crypto.Signer interface specifies that if the message is hashed, the
+		// HashFunc in the SignerOpts will be specified.
+		//
+		// See https://pkg.go.dev/crypto#Signer
+		if signerOpts.HashFunc() > 0 {
+			requestData["prehashed"] = false
 		}
 	}
 

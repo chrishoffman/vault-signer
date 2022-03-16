@@ -4,10 +4,13 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/asn1"
 	"flag"
 	"fmt"
@@ -18,6 +21,7 @@ import (
 	"time"
 
 	signer "github.com/chrishoffman/vault-signer"
+	vaultsigner "github.com/chrishoffman/vault-signer"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/ory/dockertest"
@@ -71,7 +75,6 @@ func Test_DockerTests(t *testing.T) {
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
-			{"rsa-2048", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmPrehashed}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha1}},
 			{"rsa-2048", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS, HashAlgorithm: signer.HashAlgorithmSha224}},
@@ -86,7 +89,6 @@ func Test_DockerTests(t *testing.T) {
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha256}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha384}},
 			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmSha512}},
-			{"ecdsa-p256", false, &signer.SignerConfig{HashAlgorithm: signer.HashAlgorithmPrehashed}},
 			{"ecdsa-p384", false, nil},
 			{"ecdsa-p521", false, nil},
 			{"ed25519", false, nil},
@@ -96,14 +98,47 @@ func Test_DockerTests(t *testing.T) {
 		for _, tt := range tests {
 			tt := tt
 			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
+			signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.signerConfig)
+			if err != nil {
+				t.Fatalf("error creating signer: %v", err)
+			}
+
 			t.Run(testName, func(t *testing.T) {
 				t.Parallel()
-				signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.signerConfig)
-				if err != nil {
-					t.Fatalf("error creating signer: %v", err)
-				}
-				testSign(t, signer, tt.keyType, tt.signerConfig)
+				testSign(t, signer, tt.keyType, tt.signerConfig, false)
 			})
+
+			t.Run(testName+",prehash", func(t *testing.T) {
+				t.Parallel()
+				testSign(t, signer, tt.keyType, tt.signerConfig, true)
+			})
+		}
+	})
+
+	t.Run("x509-sign", func(t *testing.T) {
+		t.Parallel()
+
+		signerConfig := &vaultsigner.SignerConfig{
+			HashAlgorithm:      vaultsigner.HashAlgorithmSha256,
+			SignatureAlgorithm: vaultsigner.SignatureAlgorithmRSAPKCS1v15,
+		}
+		signer, err := testSigner(t, client, "rsa-4096", false, signerConfig)
+		if err != nil {
+			t.Fatalf("error creating signer: %v", err)
+		}
+
+		template := &x509.Certificate{
+			Subject: pkix.Name{
+				CommonName: "Test",
+			},
+			SerialNumber:       big.NewInt(1),
+			NotAfter:           time.Now().Add(time.Hour).UTC(),
+			SignatureAlgorithm: x509.SHA256WithRSA,
+		}
+
+		_, err = x509.CreateCertificate(rand.Reader, template, template, signer.Public(), signer)
+		if err != nil {
+			t.Fatalf("Error creating certificate: %s", err)
 		}
 	})
 
@@ -130,7 +165,7 @@ func Test_DockerTests(t *testing.T) {
 		if err != nil {
 			t.Fatalf("should not be able to clone non-derived signer")
 		}
-		testSign(t, clonedSigner, "ed25519", nil)
+		testSign(t, clonedSigner, "ed25519", nil, false)
 	})
 
 	t.Run("key does not support signing", func(t *testing.T) {
@@ -155,14 +190,14 @@ func Test_DockerTests(t *testing.T) {
 		if err != nil {
 			t.Fatalf("error creating signer: %v", err)
 		}
-		testSign(t, signer, "ed25519", nil)
+		testSign(t, signer, "ed25519", nil, false)
 
 		// reset namespace
 		client.SetNamespace("")
 	})
 }
 
-func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerConfig *signer.SignerConfig) {
+func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerConfig *signer.SignerConfig, prehash bool) {
 	if signerConfig == nil {
 		signerConfig = &signer.SignerConfig{}
 	}
@@ -173,12 +208,14 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 	}
 
 	testDigest := []byte(newUUID(t))
+	opts := &signerOpts{}
 	algo, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
-	if signerConfig.HashAlgorithm == signer.HashAlgorithmPrehashed {
+	if prehash {
 		testDigest = hash
+		opts.hash = algo
 	}
 
-	signature, err := vsigner.Sign(nil, testDigest, nil)
+	signature, err := vsigner.Sign(nil, testDigest, opts)
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
@@ -237,7 +274,7 @@ func hashValue(algo signer.HashAlgorithm, data []byte) (crypto.Hash, []byte) {
 	case signer.HashAlgorithmSha512:
 		sum := sha512.Sum512(data)
 		return crypto.SHA512, sum[:]
-	default: // signer.HashAlgorithmSha256, signer.HashAlgorthmPrehashed:
+	default: // signer.HashAlgorithmSha256
 		sum := sha256.Sum256(data)
 		return crypto.SHA256, sum[:]
 	}
@@ -365,4 +402,12 @@ func prepareTestContainer(t *testing.T) *api.Client {
 	}
 
 	return client
+}
+
+type signerOpts struct {
+	hash crypto.Hash
+}
+
+func (s *signerOpts) HashFunc() crypto.Hash {
+	return s.hash
 }
