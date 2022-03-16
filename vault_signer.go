@@ -166,7 +166,7 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, signerOpts crypto.SignerO
 		//
 		// See https://pkg.go.dev/crypto#Signer
 		if signerOpts.HashFunc() > 0 {
-			requestData["prehashed"] = false
+			requestData["prehashed"] = true
 		}
 	}
 
