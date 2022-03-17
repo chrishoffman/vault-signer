@@ -14,6 +14,7 @@ import (
 	"encoding/asn1"
 	"flag"
 	"fmt"
+	"log"
 	"math/big"
 	"net"
 	"path"
@@ -21,9 +22,13 @@ import (
 	"time"
 
 	signer "github.com/chrishoffman/vault-signer"
+	vaultsigner "github.com/chrishoffman/vault-signer"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/ory/dockertest"
+	"gopkg.in/square/go-jose.v2"
+	"gopkg.in/square/go-jose.v2/cryptosigner"
+	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
@@ -114,31 +119,75 @@ func Test_DockerTests(t *testing.T) {
 		}
 	})
 
-	t.Run("x509-sign", func(t *testing.T) {
-		t.Parallel()
+	t.Run("sign-examples", func(t *testing.T) {
+		t.Run("x509", func(t *testing.T) {
+			t.Parallel()
 
-		signerConfig := &signer.SignerConfig{
-			HashAlgorithm:      signer.HashAlgorithmSha256,
-			SignatureAlgorithm: signer.SignatureAlgorithmRSAPKCS1v15,
-		}
-		signer, err := testSigner(t, client, "rsa-4096", false, signerConfig)
-		if err != nil {
-			t.Fatalf("error creating signer: %v", err)
-		}
+			signerConfig := &signer.SignerConfig{
+				HashAlgorithm:      signer.HashAlgorithmSha256,
+				SignatureAlgorithm: signer.SignatureAlgorithmRSAPKCS1v15,
+			}
+			signer, err := testSigner(t, client, "rsa-4096", false, signerConfig)
+			if err != nil {
+				t.Fatalf("error creating signer: %v", err)
+			}
 
-		template := &x509.Certificate{
-			Subject: pkix.Name{
-				CommonName: "Test",
-			},
-			SerialNumber:       big.NewInt(1),
-			NotAfter:           time.Now().Add(time.Hour).UTC(),
-			SignatureAlgorithm: x509.SHA256WithRSA,
-		}
+			template := &x509.Certificate{
+				Subject: pkix.Name{
+					CommonName: "Test",
+				},
+				SerialNumber:       big.NewInt(1),
+				NotAfter:           time.Now().Add(time.Hour).UTC(),
+				SignatureAlgorithm: x509.SHA256WithRSA,
+			}
 
-		_, err = x509.CreateCertificate(rand.Reader, template, template, signer.Public(), signer)
-		if err != nil {
-			t.Fatalf("Error creating certificate: %s", err)
-		}
+			_, err = x509.CreateCertificate(rand.Reader, template, template, signer.Public(), signer)
+			if err != nil {
+				t.Fatalf("Error creating certificate: %s", err)
+			}
+		})
+
+		t.Run("jwt", func(t *testing.T) {
+			t.Run("EdDSA", func(t *testing.T) {
+				t.Parallel()
+
+				vaultSigner, err := testSigner(t, client, "ed25519", false, nil)
+				if err != nil {
+					t.Fatalf("error creating signer: %v", err)
+				}
+				testJWTSign(t, vaultSigner, jose.EdDSA)
+			})
+
+			t.Run("ES256", func(t *testing.T) {
+				t.Parallel()
+
+				vaultSigner, err := testSigner(t, client, "ecdsa-p256", false, nil)
+				if err != nil {
+					t.Fatalf("error creating signer: %v", err)
+				}
+				testJWTSign(t, vaultSigner, jose.ES256)
+			})
+
+			t.Run("RS256", func(t *testing.T) {
+				t.Parallel()
+
+				vaultSigner, err := testSigner(t, client, "rsa-4096", false, nil)
+				if err != nil {
+					t.Fatalf("error creating signer: %v", err)
+				}
+				testJWTSign(t, vaultSigner, jose.RS256)
+			})
+
+			t.Run("PS256", func(t *testing.T) {
+				t.Parallel()
+
+				vaultSigner, err := testSigner(t, client, "rsa-4096", false, &vaultsigner.SignerConfig{SignatureAlgorithm: vaultsigner.SignatureAlgorithmRSAPSS})
+				if err != nil {
+					t.Fatalf("error creating signer: %v", err)
+				}
+				testJWTSign(t, vaultSigner, jose.PS256)
+			})
+		})
 	})
 
 	t.Run("clone with context, not derived", func(t *testing.T) {
@@ -207,11 +256,11 @@ func testSign(t *testing.T, vsigner *signer.VaultSigner, keyType string, signerC
 	}
 
 	testDigest := []byte(newUUID(t))
-	opts := &signerOpts{}
+	opts := crypto.Hash(0)
 	algo, hash := hashValue(signerConfig.HashAlgorithm, testDigest)
 	if prehash {
 		testDigest = hash
-		opts.hash = algo
+		opts = algo
 	}
 
 	signature, err := vsigner.Sign(nil, testDigest, opts)
@@ -403,10 +452,41 @@ func prepareTestContainer(t *testing.T) *api.Client {
 	return client
 }
 
-type signerOpts struct {
-	hash crypto.Hash
-}
+func testJWTSign(t *testing.T, vaultSigner *signer.VaultSigner, algo jose.SignatureAlgorithm) {
+	// Set up JWT signer
+	opaqueSigner := cryptosigner.Opaque(vaultSigner)
+	signingKey := jose.SigningKey{Algorithm: algo, Key: opaqueSigner}
+	signer, err := jose.NewSigner(signingKey, nil)
+	if err != nil {
+		t.Fatalf("error creating signer: %v", err)
+	}
 
-func (s *signerOpts) HashFunc() crypto.Hash {
-	return s.hash
+	// Build JWT
+	builder := jwt.Signed(signer)
+	pubClaims := jwt.Claims{
+		Issuer:   "issuer1",
+		Subject:  "subject1",
+		ID:       "id1",
+		Audience: jwt.Audience{"aud1", "aud2"},
+		IssuedAt: jwt.NewNumericDate(time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)),
+		Expiry:   jwt.NewNumericDate(time.Date(2030, 1, 1, 0, 15, 0, 0, time.UTC)),
+	}
+	builder = builder.Claims(pubClaims)
+
+	rawJWT, err := builder.CompactSerialize()
+	if err != nil {
+		t.Fatalf("failed to create JWT: %+v", err)
+	}
+
+	// decode the rawJWT and return a *JSONWebToken
+	parsedJWT, err := jwt.ParseSigned(rawJWT)
+	if err != nil {
+		t.Fatalf("failed to parse JWT:%+v", err)
+	}
+
+	// Verify signature
+	resultCl := map[string]interface{}{}
+	if err := parsedJWT.Claims(vaultSigner.Public(), &resultCl); err != nil {
+		log.Fatalf("Failed to verify JWT: %+v", err)
+	}
 }
