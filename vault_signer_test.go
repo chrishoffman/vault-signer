@@ -67,6 +67,7 @@ func Test_DockerTests(t *testing.T) {
 	client := prepareTestContainer(t)
 
 	t.Run("sign", func(t *testing.T) {
+		t.Parallel()
 		var tests = []struct {
 			keyType      string
 			derived      bool
@@ -119,6 +120,7 @@ func Test_DockerTests(t *testing.T) {
 	})
 
 	t.Run("sign-examples", func(t *testing.T) {
+		t.Parallel()
 		t.Run("x509", func(t *testing.T) {
 			t.Parallel()
 
@@ -147,6 +149,7 @@ func Test_DockerTests(t *testing.T) {
 		})
 
 		t.Run("jwt", func(t *testing.T) {
+			t.Parallel()
 			t.Run("EdDSA", func(t *testing.T) {
 				t.Parallel()
 
