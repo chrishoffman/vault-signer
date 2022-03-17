@@ -22,7 +22,6 @@ import (
 	"time"
 
 	signer "github.com/chrishoffman/vault-signer"
-	vaultsigner "github.com/chrishoffman/vault-signer"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/ory/dockertest"
@@ -181,7 +180,7 @@ func Test_DockerTests(t *testing.T) {
 			t.Run("PS256", func(t *testing.T) {
 				t.Parallel()
 
-				vaultSigner, err := testSigner(t, client, "rsa-4096", false, &vaultsigner.SignerConfig{SignatureAlgorithm: vaultsigner.SignatureAlgorithmRSAPSS})
+				vaultSigner, err := testSigner(t, client, "rsa-4096", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS})
 				if err != nil {
 					t.Fatalf("error creating signer: %v", err)
 				}
