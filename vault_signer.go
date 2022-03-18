@@ -62,6 +62,7 @@ type SignerConfig struct {
 
 	// HashAlgorithm is the hash algorithm used in the signing operation. It is only supported
 	// for RSA and ECDSA keys. If unset for supported keys, the value will default to sha2-256.
+	// If the sign request hashes the signing data in the request, this value will be ignored.
 	HashAlgorithm HashAlgorithm
 
 	// SignatureAlgorithm is the signature algorithm used in the signing operation. It is only
@@ -141,6 +142,10 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 // Sign is part of the crypto.Signer interface and signs a given digest with the configured key
 // in Vault's transit secrets engine
 func (s *VaultSigner) Sign(_ io.Reader, digest []byte, signerOpts crypto.SignerOpts) ([]byte, error) {
+	if signerOpts == nil {
+		signerOpts = crypto.Hash(0)
+	}
+
 	requestData := map[string]interface{}{
 		"input": base64.StdEncoding.EncodeToString(digest),
 	}
@@ -149,25 +154,41 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, signerOpts crypto.SignerO
 		requestData["context"] = base64.StdEncoding.EncodeToString(s.context)
 	}
 
-	switch s.keyType {
-	case keyTypeRsa:
-		requestData["signature_algorithm"] = s.signatureAlgorithm
-		if s.signatureAlgorithm == "" {
-			requestData["signature_algorithm"] = SignatureAlgorithmRSAPKCS1v15
-		}
-		fallthrough
-	case keyTypeEcdsa: // RSA and ECDSA keys
-		if s.hashAlgorithm != "" {
-			requestData["hash_algorithm"] = s.hashAlgorithm
+	if s.keyType == keyTypeRsa {
+		requestData["signature_algorithm"] = SignatureAlgorithmRSAPKCS1v15
+		if s.signatureAlgorithm != "" {
+			requestData["signature_algorithm"] = s.signatureAlgorithm
 		}
 
-		// The crypto.Signer interface specifies that if the message is hashed, the
-		// HashFunc in the SignerOpts will be specified.
-		//
-		// See https://pkg.go.dev/crypto#Signer
-		if signerOpts.HashFunc() > 0 {
-			requestData["prehashed"] = true
+		if _, ok := signerOpts.(*rsa.PSSOptions); ok && requestData["signature_algorithm"] == SignatureAlgorithmRSAPKCS1v15 {
+			return nil, errors.New("PSS options were given when signature algorithm is set to PKCS1v15")
 		}
+	}
+
+	// The crypto.Signer interface specifies that if the message is hashed, the
+	// HashFunc in the SignerOpts will be specified.
+	//
+	// See https://pkg.go.dev/crypto#Signer
+	switch {
+	case signerOpts.HashFunc() != crypto.Hash(0):
+		requestData["prehashed"] = true
+
+		switch signerOpts.HashFunc() {
+		case crypto.SHA1:
+			requestData["hash_algorithm"] = HashAlgorithmSha1
+		case crypto.SHA224:
+			requestData["hash_algorithm"] = HashAlgorithmSha224
+		case crypto.SHA256:
+			requestData["hash_algorithm"] = HashAlgorithmSha256
+		case crypto.SHA384:
+			requestData["hash_algorithm"] = HashAlgorithmSha384
+		case crypto.SHA512:
+			requestData["hash_algorithm"] = HashAlgorithmSha512
+		default:
+			return nil, fmt.Errorf("unsupported hash algorithm: %s", signerOpts.HashFunc().String())
+		}
+	case s.hashAlgorithm != "":
+		requestData["hash_algorithm"] = s.hashAlgorithm
 	}
 
 	rsp, err := s.vaultClient.Logical().Write(s.buildKeyPath("sign"), requestData)
@@ -252,9 +273,6 @@ func (s *VaultSigner) retrieveKey() error {
 		return errors.New("unsupported key type")
 	}
 
-	if s.keyType != keyTypeRsa && s.keyType != keyTypeEcdsa && s.hashAlgorithm != "" {
-		return errors.New("hash algorithm can only be set for RSA and ECDSA keys")
-	}
 	if s.keyType != keyTypeRsa && s.signatureAlgorithm != "" {
 		return errors.New("signature algorithm can only be set for RSA keys")
 	}
