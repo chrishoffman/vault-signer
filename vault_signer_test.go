@@ -101,10 +101,19 @@ func Test_DockerTests(t *testing.T) {
 
 		for _, tt := range tests {
 			tt := tt
-			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
 			signer, err := testSigner(t, client, tt.keyType, tt.derived, tt.signerConfig)
 			if err != nil {
 				t.Fatalf("error creating signer: %v", err)
+			}
+
+			testName := fmt.Sprintf("%s,derived:%t", tt.keyType, tt.derived)
+			if tt.signerConfig != nil {
+				if tt.signerConfig.SignatureAlgorithm != "" {
+					testName += ":" + string(tt.signerConfig.SignatureAlgorithm)
+				}
+				if tt.signerConfig.HashAlgorithm != "" {
+					testName += ":" + string(tt.signerConfig.HashAlgorithm)
+				}
 			}
 
 			t.Run(testName, func(t *testing.T) {
