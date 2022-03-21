@@ -124,13 +124,13 @@ func (s *VaultSigner) CloneWithContext(context []byte) (*VaultSigner, error) {
 	}
 
 	signer := &VaultSigner{
-		vaultClient: s.vaultClient,
-		namespace:   s.namespace,
-		mountPath:   s.mountPath,
-		keyName:     s.keyName,
-		context:     context,
-		derived:     s.derived,
-		keyType:     s.keyType,
+		vaultClient:        s.vaultClient,
+		namespace:          s.namespace,
+		mountPath:          s.mountPath,
+		keyName:            s.keyName,
+		context:            context,
+		signatureAlgorithm: s.signatureAlgorithm,
+		hashAlgorithm:      s.hashAlgorithm,
 	}
 	if err := signer.retrieveKey(); err != nil {
 		return nil, err
@@ -239,12 +239,11 @@ func (s *VaultSigner) retrieveKey() error {
 	}
 
 	keyInfo := struct {
-		Derived            bool        `mapstructure:"derived"`
-		SupportsSigning    bool        `mapstructure:"supports_signing"`
-		SupportsDerivation bool        `mapstructure:"supports_derivation"`
-		KeyType            string      `mapstructure:"type"`
-		Keys               interface{} `mapstructure:"keys"`
-		LatestVersion      int         `mapstructure:"latest_version"`
+		Derived         bool        `mapstructure:"derived"`
+		SupportsSigning bool        `mapstructure:"supports_signing"`
+		KeyType         string      `mapstructure:"type"`
+		Keys            interface{} `mapstructure:"keys"`
+		LatestVersion   int         `mapstructure:"latest_version"`
 	}{}
 	if err := mapstructure.WeakDecode(rsp.Data, &keyInfo); err != nil {
 		return err
@@ -253,11 +252,14 @@ func (s *VaultSigner) retrieveKey() error {
 	if !keyInfo.SupportsSigning {
 		return errors.New("key does not support signing")
 	}
-	if keyInfo.Derived && len(s.context) == 0 {
-		return errors.New("context must be provided for derived keys")
-	}
-	if !keyInfo.SupportsDerivation && len(s.context) > 0 {
-		return errors.New("context provided by derivation is not supported")
+	if keyInfo.Derived {
+		if len(s.context) == 0 {
+			return errors.New("context must be provided for derived keys")
+		}
+	} else {
+		if len(s.context) > 0 {
+			return errors.New("context provided but key is not derived")
+		}
 	}
 
 	s.derived = keyInfo.Derived
