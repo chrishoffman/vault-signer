@@ -93,6 +93,9 @@ func NewVaultSigner(vaultClient *api.Client, signerConfig *SignerConfig) (*Vault
 	if vaultClient == nil {
 		return nil, errors.New("vault client is required")
 	}
+	if signerConfig == nil {
+		return nil, errors.New("signer config is required")
+	}
 	if signerConfig.MountPath == "" {
 		return nil, errors.New("key mount path is required")
 	}
@@ -166,7 +169,7 @@ func (s *VaultSigner) Sign(_ io.Reader, digest []byte, signerOpts crypto.SignerO
 	}
 
 	// The crypto.Signer interface specifies that if the message is hashed, the
-	// HashFunc in the SignerOpts will be specified.
+	// HashFunc in the SignerOpts will be specified
 	//
 	// See https://pkg.go.dev/crypto#Signer
 	switch {
@@ -328,7 +331,6 @@ func (s *VaultSigner) createPublicKey(keyData string) (crypto.PublicKey, error) 
 		if err != nil {
 			return nil, err
 		}
-
 		return ed25519.PublicKey(key), nil
 	}
 	return nil, errors.New("unknown public key type")
