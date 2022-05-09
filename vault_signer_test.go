@@ -159,45 +159,29 @@ func Test_DockerTests(t *testing.T) {
 
 		t.Run("jwt", func(t *testing.T) {
 			t.Parallel()
-			t.Run("EdDSA", func(t *testing.T) {
-				t.Parallel()
 
-				vaultSigner, err := testSigner(t, client, "ed25519", false, nil)
-				if err != nil {
-					t.Fatalf("error creating signer: %v", err)
-				}
-				testJWTSign(t, vaultSigner, jose.EdDSA)
-			})
+			var tests = []struct {
+				keyType string
+				algo    jose.SignatureAlgorithm
+				config  *signer.SignerConfig
+			}{
+				{"ed25519", jose.EdDSA, nil},
+				{"ecdsa-p256", jose.ES256, nil},
+				{"rsa-4096", jose.RS256, nil},
+				{"rsa-4096", jose.PS256, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS}},
+			}
+			for _, tt := range tests {
+				tt := tt
+				t.Run(string(tt.algo), func(t *testing.T) {
+					t.Parallel()
 
-			t.Run("ES256", func(t *testing.T) {
-				t.Parallel()
-
-				vaultSigner, err := testSigner(t, client, "ecdsa-p256", false, nil)
-				if err != nil {
-					t.Fatalf("error creating signer: %v", err)
-				}
-				testJWTSign(t, vaultSigner, jose.ES256)
-			})
-
-			t.Run("RS256", func(t *testing.T) {
-				t.Parallel()
-
-				vaultSigner, err := testSigner(t, client, "rsa-4096", false, nil)
-				if err != nil {
-					t.Fatalf("error creating signer: %v", err)
-				}
-				testJWTSign(t, vaultSigner, jose.RS256)
-			})
-
-			t.Run("PS256", func(t *testing.T) {
-				t.Parallel()
-
-				vaultSigner, err := testSigner(t, client, "rsa-4096", false, &signer.SignerConfig{SignatureAlgorithm: signer.SignatureAlgorithmRSAPSS})
-				if err != nil {
-					t.Fatalf("error creating signer: %v", err)
-				}
-				testJWTSign(t, vaultSigner, jose.PS256)
-			})
+					vaultSigner, err := testSigner(t, client, tt.keyType, false, tt.config)
+					if err != nil {
+						t.Fatalf("error creating signer: %v", err)
+					}
+					testJWTSign(t, vaultSigner, tt.algo)
+				})
+			}
 		})
 	})
 
