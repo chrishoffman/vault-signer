@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/vault/api v1.8.0
+	github.com/hashicorp/vault/api v1.8.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ory/dockertest v3.3.5+incompatible
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -30,7 +30,7 @@ require (
 	github.com/hashicorp/go-hclog v1.2.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/hashicorp/go-plugin v1.4.3 // indirect
+	github.com/hashicorp/go-plugin v1.4.5 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.0 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-secure-stdlib/mlock v0.1.2 // indirect
@@ -61,8 +61,8 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	golang.org/x/crypto v0.0.0-20220315160706-3147a52a75dd // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
-	golang.org/x/sys v0.0.0-20220318055525-2edf467146b5 // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
+	golang.org/x/text v0.3.8 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
 	google.golang.org/genproto v0.0.0-20220317150908-0efb43f6373e // indirect
 	google.golang.org/grpc v1.45.0 // indirect
