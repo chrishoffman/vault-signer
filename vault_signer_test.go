@@ -66,7 +66,7 @@ func TestNew_ValidateConstructor(t *testing.T) {
 }
 
 func Test_DockerTests(t *testing.T) {
-	client := prepareTestContainerContainer(t)
+	client := prepareTestContainer(t)
 
 	t.Run("sign", func(t *testing.T) {
 		t.Parallel()
@@ -370,7 +370,7 @@ func newUUID(t *testing.T) string {
 	return generatedUUID.String()
 }
 
-func prepareTestContainerContainer(t *testing.T) *api.Client {
+func prepareTestContainer(t *testing.T) *api.Client {
 	testUUID, err := uuid.NewUUID()
 	if err != nil {
 		t.Fatalf("err: %s", err)
