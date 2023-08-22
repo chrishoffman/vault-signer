@@ -3,7 +3,7 @@ module github.com/chrishoffman/vault-signer
 go 1.17
 
 require (
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/hashicorp/vault/api v1.9.2
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ory/dockertest v3.3.5+incompatible
