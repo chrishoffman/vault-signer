@@ -14,7 +14,6 @@ import (
 	"encoding/asn1"
 	"flag"
 	"fmt"
-	"log"
 	"math/big"
 	"net"
 	"path"
@@ -482,6 +481,6 @@ func testJWTSign(t *testing.T, vaultSigner *signer.VaultSigner, algo jose.Signat
 	// Verify signature
 	resultCl := map[string]interface{}{}
 	if err := parsedJWT.Claims(vaultSigner.Public(), &resultCl); err != nil {
-		log.Fatalf("Failed to verify JWT: %+v", err)
+		t.Fatalf("Failed to verify JWT: %+v", err)
 	}
 }
