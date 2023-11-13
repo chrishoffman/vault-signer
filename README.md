@@ -71,3 +71,29 @@ if err := parsedJWT.Claims(vaultSigner.Public(), &resultCl); err != nil {
 	log.Fatalf("Failed to verify JWT: %+v", err)
 }
 ```
+
+### Sign x509 Certificate
+
+```go
+import (
+	"crypto/rand"
+	"crypto/x509"
+	"log"
+)
+
+// using VaultSigner setup above
+
+template := &x509.Certificate{
+	Subject: pkix.Name{
+		CommonName: "Test",
+	},
+	SerialNumber:       big.NewInt(1),
+	NotAfter:           time.Now().Add(time.Hour).UTC(),
+	SignatureAlgorithm: x509.SHA256WithRSA,
+}
+
+cert, err = x509.CreateCertificate(rand.Reader, template, template, vaultSigner.Public(), vaultSigner)
+if err != nil {
+	log.Fatalf("Error creating certificate: %s", err)
+}
+```
