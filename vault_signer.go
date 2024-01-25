@@ -242,11 +242,11 @@ func (s *VaultSigner) retrieveKey() error {
 	}
 
 	keyInfo := struct {
-		Derived         bool        `mapstructure:"derived"`
-		SupportsSigning bool        `mapstructure:"supports_signing"`
-		KeyType         string      `mapstructure:"type"`
-		Keys            interface{} `mapstructure:"keys"`
-		LatestVersion   int         `mapstructure:"latest_version"`
+		Derived         bool                `mapstructure:"derived"`
+		SupportsSigning bool                `mapstructure:"supports_signing"`
+		KeyType         string              `mapstructure:"type"`
+		Keys            map[int]interface{} `mapstructure:"keys"`
+		LatestVersion   int                 `mapstructure:"latest_version"`
 	}{}
 	if err := mapstructure.WeakDecode(rsp.Data, &keyInfo); err != nil {
 		return err
@@ -282,14 +282,14 @@ func (s *VaultSigner) retrieveKey() error {
 		return errors.New("signature algorithm can only be set for RSA keys")
 	}
 
-	publicKeyInfo := map[int]struct {
+	publicKeyInfo := struct {
 		PublicKey string `mapstructure:"public_key"`
 	}{}
-	if err := mapstructure.WeakDecode(keyInfo.Keys, &publicKeyInfo); err != nil {
+	if err := mapstructure.WeakDecode(keyInfo.Keys[keyInfo.LatestVersion], &publicKeyInfo); err != nil {
 		return err
 	}
 
-	publicKey, err := s.createPublicKey(publicKeyInfo[keyInfo.LatestVersion].PublicKey)
+	publicKey, err := s.createPublicKey(publicKeyInfo.PublicKey)
 	if err != nil {
 		return err
 	}
