@@ -1,6 +1,8 @@
 module github.com/chrishoffman/vault-signer
 
-go 1.17
+go 1.21
+
+toolchain go1.22.3
 
 require (
 	github.com/google/uuid v1.6.0
