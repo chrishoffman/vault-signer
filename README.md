@@ -60,7 +60,7 @@ if err != nil {
 }
 
 // decode the raw JWT
-parsedJWT, err := jwt.ParseSigned(rawJWT. []jose.SignatureAlgorithm{jose.EdDSA})
+parsedJWT, err := jwt.ParseSigned(rawJWT, []jose.SignatureAlgorithm{jose.EdDSA})
 if err != nil {
 	log.Fatalf("failed to parse JWT:%+v", err)
 }
