@@ -5,11 +5,11 @@ go 1.21
 toolchain go1.22.3
 
 require (
+	github.com/go-jose/go-jose/v4 v4.0.2
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/vault/api v1.14.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ory/dockertest v3.3.5+incompatible
-	gopkg.in/square/go-jose.v2 v2.6.0
 )
 
 require (
@@ -21,7 +21,6 @@ require (
 	github.com/containerd/continuity v0.0.0-20210315143101-93e15499afd5 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
 	github.com/gotestyourself/gotestyourself v2.2.0+incompatible // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect

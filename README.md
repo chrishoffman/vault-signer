@@ -29,9 +29,9 @@ if err != nil {
 import (
 	"log"
 
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/cryptosigner"
-	"gopkg.in/square/go-jose.v2/jwt"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/cryptosigner"
+	"github.com/go-jose/go-jose/v4/jwt"
 )
 
 // using VaultSigner setup above
@@ -54,13 +54,13 @@ pubClaims := jwt.Claims{
 }
 builder = builder.Claims(pubClaims)
 
-rawJWT, err := builder.CompactSerialize()
+rawJWT, err := builder.Serialize()
 if err != nil {
 	log.Fatalf("failed to create JWT: %+v", err)
 }
 
 // decode the raw JWT
-parsedJWT, err := jwt.ParseSigned(rawJWT)
+parsedJWT, err := jwt.ParseSigned(rawJWT. []jose.SignatureAlgorithm{jose.EdDSA})
 if err != nil {
 	log.Fatalf("failed to parse JWT:%+v", err)
 }
