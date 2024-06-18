@@ -21,12 +21,12 @@ import (
 	"time"
 
 	signer "github.com/chrishoffman/vault-signer"
+	"github.com/go-jose/go-jose/v4"
+	"github.com/go-jose/go-jose/v4/cryptosigner"
+	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
 	"github.com/ory/dockertest"
-	"gopkg.in/square/go-jose.v2"
-	"gopkg.in/square/go-jose.v2/cryptosigner"
-	"gopkg.in/square/go-jose.v2/jwt"
 )
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
@@ -467,13 +467,13 @@ func testJWTSign(t *testing.T, vaultSigner *signer.VaultSigner, algo jose.Signat
 	}
 	builder = builder.Claims(pubClaims)
 
-	rawJWT, err := builder.CompactSerialize()
+	rawJWT, err := builder.Serialize()
 	if err != nil {
 		t.Fatalf("failed to create JWT: %+v", err)
 	}
 
 	// decode the rawJWT and return a *JSONWebToken
-	parsedJWT, err := jwt.ParseSigned(rawJWT)
+	parsedJWT, err := jwt.ParseSigned(rawJWT, []jose.SignatureAlgorithm{algo})
 	if err != nil {
 		t.Fatalf("failed to parse JWT:%+v", err)
 	}
