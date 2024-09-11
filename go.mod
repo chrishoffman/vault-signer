@@ -7,7 +7,7 @@ toolchain go1.22.3
 require (
 	github.com/go-jose/go-jose/v4 v4.0.4
 	github.com/google/uuid v1.6.0
-	github.com/hashicorp/vault/api v1.14.0
+	github.com/hashicorp/vault/api v1.15.0
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/ory/dockertest v3.3.5+incompatible
 )
@@ -17,7 +17,7 @@ require (
 	github.com/Microsoft/go-winio v0.4.16 // indirect
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/containerd/continuity v0.0.0-20210315143101-93e15499afd5 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
