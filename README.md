@@ -1,4 +1,4 @@
-# vault-signer [![test](https://github.com/chrishoffman/vault-signer/workflows/test/badge.svg?branch=main)](https://github.com/chrishoffman/vault-signer/actions/workflows/test.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/chrishoffman/vault-signer.svg)](https://pkg.go.dev/github.com/chrishoffman/vault-signer)
+# vault-signer [![test](https://github.com/chrishoffman/vault-signer/workflows/test/badge.svg)](https://github.com/chrishoffman/vault-signer/actions/workflows/test.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/chrishoffman/vault-signer.svg)](https://pkg.go.dev/github.com/chrishoffman/vault-signer)
 A Go crypto.Signer that leverages the transit secrets engine in HashiCorp Vault
 
 ## Usage
