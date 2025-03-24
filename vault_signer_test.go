@@ -121,6 +121,11 @@ func Test_DockerTests(t *testing.T) {
 			})
 
 			t.Run(testName+",prehash", func(t *testing.T) {
+				// vault 1.19.0+ removed support for prehashing ed25519 signatures
+				if tt.keyType == "ed25519" {
+					t.Skip()
+				}
+
 				t.Parallel()
 				testSign(t, signer, tt.keyType, tt.signerConfig, true)
 			})
