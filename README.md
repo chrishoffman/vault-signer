@@ -1,5 +1,31 @@
 # vault-signer [![test](https://github.com/chrishoffman/vault-signer/workflows/test/badge.svg)](https://github.com/chrishoffman/vault-signer/actions/workflows/test.yml) [![Go Reference](https://pkg.go.dev/badge/github.com/chrishoffman/vault-signer.svg)](https://pkg.go.dev/github.com/chrishoffman/vault-signer)
-A Go crypto.Signer that leverages the transit secrets engine in HashiCorp Vault
+
+A Go `crypto.Signer` implementation that leverages HashiCorp Vault's transit secrets engine for cryptographic operations.
+
+## Why vault-signer?
+
+Keep your private keys secure in Vault while seamlessly integrating with Go's standard crypto interfaces. Perfect for:
+
+- **Signing JWTs** without exposing private keys to your application
+- **Creating x509 certificates** with Vault-managed keys
+- **Centralizing key management** across your infrastructure
+- **Meeting compliance requirements** that mandate hardware security modules (HSMs)
+
+With vault-signer, your signing operations use Vault's transit engine while your code uses familiar Go crypto patterns.
+
+## Features
+
+- Implements Go's standard `crypto.Signer` interface
+- Supports multiple signature algorithms (RSA, ECDSA, Ed25519)
+- Drop-in replacement for local private keys
+- Works with popular libraries like go-jose and x509
+- Production-ready with comprehensive test coverage
+
+## Installation
+
+```bash
+go get github.com/chrishoffman/vault-signer
+```
 
 ## Usage
 To use `vault-signer` just pass in a Vault API client and key configuration to get a struct that implements the Go [crypto.Signer](https://golang.org/pkg/crypto/#Signer) interface.
