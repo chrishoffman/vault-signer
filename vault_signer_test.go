@@ -26,7 +26,7 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
-	"github.com/ory/dockertest"
+	"github.com/ory/dockertest/v3"
 )
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
