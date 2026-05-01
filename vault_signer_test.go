@@ -395,6 +395,7 @@ func prepareTestContainer(t *testing.T) *api.Client {
 		dockertest.WithEnv([]string{
 			fmt.Sprintf("VAULT_LICENSE=%s", *license),
 		}),
+		dockertest.WithoutReuse(),
 	)
 
 	var client *api.Client
@@ -403,13 +404,17 @@ func prepareTestContainer(t *testing.T) *api.Client {
 		vaultConfig := api.DefaultConfig()
 		vaultConfig.Address = fmt.Sprintf("http://%s", resource.GetHostPort("8200/tcp"))
 
-		client, err = api.NewClient(vaultConfig)
+		c, err := api.NewClient(vaultConfig)
 		if err != nil {
 			return err
 		}
-		client.SetToken(testToken)
+		c.SetToken(testToken)
 
-		return client.Sys().Unmount("kv")
+		if _, err = c.Sys().Health(); err != nil {
+			return err
+		}
+		client = c
+		return nil
 	}); err != nil {
 		t.Fatalf("Could not connect to vault: %s", err)
 	}
