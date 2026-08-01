@@ -15,7 +15,6 @@ import (
 	"flag"
 	"fmt"
 	"math/big"
-	"net"
 	"path"
 	"testing"
 	"time"
@@ -26,7 +25,7 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 	"github.com/google/uuid"
 	"github.com/hashicorp/vault/api"
-	"github.com/ory/dockertest/v3"
+	"github.com/ory/dockertest/v4"
 )
 
 var _ crypto.Signer = (*signer.VaultSigner)(nil)
@@ -379,71 +378,38 @@ func prepareTestContainer(t *testing.T) *api.Client {
 	}
 	testToken := testUUID.String()
 
-	pool, err := dockertest.NewPool("")
-	if err != nil {
-		t.Fatalf("Failed to connect to docker: %s", err)
-	}
+	pool := dockertest.NewPoolT(t, "")
 
 	dockerImage := "hashicorp/vault"
 	if *enterprise {
 		dockerImage = "hashicorp/vault-enterprise"
 	}
 
-	dockerOptions := &dockertest.RunOptions{
-		Repository: dockerImage,
-		Tag:        "latest",
-		Cmd: []string{"server", "-log-level=trace", "-dev", fmt.Sprintf("-dev-root-token-id=%s", testToken),
-			"-dev-listen-address=0.0.0.0:8200"},
-		Env: []string{
+	resource := pool.RunT(t, dockerImage,
+		dockertest.WithTag("latest"),
+		dockertest.WithCmd([]string{
+			"server", "-log-level=trace", "-dev",
+			fmt.Sprintf("-dev-root-token-id=%s", testToken),
+			"-dev-listen-address=0.0.0.0:8200",
+		}),
+		dockertest.WithEnv([]string{
 			fmt.Sprintf("VAULT_LICENSE=%s", *license),
-		},
-	}
-	resource, err := pool.RunWithOptions(dockerOptions)
-	if err != nil {
-		t.Fatalf("Could not start local Vault docker container: %s", err)
-	}
-
-	t.Cleanup(func() {
-		if err := pool.Purge(resource); err != nil {
-			t.Fatalf("Failed to cleanup local container: %s", err)
-		}
-	})
+		}),
+	)
 
 	var client *api.Client
 
-	// exponential backoff-retry
-	if err = pool.Retry(func() error {
+	if err = pool.Retry(t.Context(), 0, func() error {
 		vaultConfig := api.DefaultConfig()
-		vaultPort := resource.GetPort("8200/tcp")
+		vaultConfig.Address = fmt.Sprintf("http://%s", resource.GetHostPort("8200/tcp"))
 
-		// various installation of docker have different host and port settings, ensure
-		// vault is listening before setting up client
-		var dockerAddress string
-		dockerHosts := []string{"172.17.0.1", "host.docker.internal", "127.0.0.1"}
-		for _, host := range dockerHosts {
-			dockerAddress = net.JoinHostPort(host, vaultPort)
-			conn, err := net.DialTimeout("tcp", dockerAddress, time.Second)
-			if err != nil {
-				continue
-			}
-			if conn != nil {
-				conn.Close()
-			}
-		}
-
-		vaultConfig.Address = fmt.Sprintf("http://%s", dockerAddress)
 		client, err = api.NewClient(vaultConfig)
 		if err != nil {
-			t.Fatalf("Failed to set up API client: %s", err)
+			return err
 		}
 		client.SetToken(testToken)
 
-		// Unmount default kv mount to ensure availability
-		if err := client.Sys().Unmount("kv"); err != nil {
-			return err
-		}
-
-		return nil
+		return client.Sys().Unmount("kv")
 	}); err != nil {
 		t.Fatalf("Could not connect to vault: %s", err)
 	}
